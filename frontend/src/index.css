@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+
+body, p, span, input::placeholder, button, a, li {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.custom-size-p {
+  font-size: 15px;
+  font: bold;
+}
+
+.custom-size-span {
+  font-size: 13px;
+  font: medium;
+}
+
+body {
+  background-color: #f2f2f2;
+}
+
+h1, h2, h3, h4{
+  font-family: 'Oswald', sans-serif;
+}
+
+h6 {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  font: bold;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  height: 6px; /* horizontal scrollbar height */
+}
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #888888;  /* orange */
+  border-radius: 9999px;
+} 
