@@ -1,3 +1,4 @@
+// src/components/Navbar.jsx (UNMODIFIED from previous answer, as it met the requirements)
 import { useState, useContext } from 'react';
 import { Search, Bell, User, Calendar, Plus, Heart, BookOpen, Menu, X, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -39,7 +40,7 @@ const Navbar = () => {
           <Calendar className="w-6 h-6 text-orange-600 group-hover:text-orange-700 transition-colors" />
           <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">VenuBooking</h2>
         </Link>
-         
+          
         {/* Right Section */}
         <div className="flex items-center space-x-8"> 
           
@@ -55,7 +56,7 @@ const Navbar = () => {
           
           {/* Utilities */}
           <div className="flex items-center space-x-3">
-              
+            
             <div className="hidden sm:flex items-center space-x-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-orange-200 w-full max-w-xs">
               <Search className="w-4 h-4 text-gray-400" />
               <input 
@@ -73,9 +74,9 @@ const Navbar = () => {
               <Bell className="w-5 h-5" />
             </button>
 
-            {/* 🧠 Fix 2: Clean login / profile display */}
+            {/* ✅ Account / Profile Display (Requirement 2: Show login link if not logged in) */}
             {currentUser ? (
-              <Link to="/profile" className="flex flex-col items-start leading-tight text-sm">
+              <Link to="/profile" className="hidden md:flex flex-col items-end leading-tight text-sm">
                 <span className="font-semibold text-gray-800">{currentUser.name}</span>
                 <span className="text-gray-500 text-xs">{currentUser.email}</span>
               </Link>
