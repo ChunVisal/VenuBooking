@@ -38,7 +38,7 @@ const MyWishlistPage = () => {
 
   // Handle removal of an item
 const handleRemove = async (wishlistId) => {
-  if (!window.confirm("Remove this event from your wishlist?")) return;
+  if (!window.confirm("Remove this event from your wishlist?")) return; 
 
   try {
     // Hits your DELETE /api/wishlist/:id route

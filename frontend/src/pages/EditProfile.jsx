@@ -61,8 +61,8 @@ const EditProfile = () => {
         }
 
         try {
-            // Send PUT request to update the profile (to /api/auth/profile)
-            const res = await api.put('/auth/profile', formData);
+            // Send PUT request to update the profile (to /api/auth/update)
+            const res = await api.put('/auth/update', formData);
             
             // Success: Re-fetch the updated user data to refresh AuthContext
             const updatedUserResponse = await api.get('/auth/me');

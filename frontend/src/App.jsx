@@ -12,6 +12,7 @@ import Event from "./pages/Event"
 import Profile from "./pages/Profile"
 import Wishlist from "./pages/Wishlist"
 import EditProfile from "./pages/EditProfile"
+import GoogleSignIn from "./pages/GoogleSignIn"
 
 function App() {
 return (
@@ -28,6 +29,7 @@ return (
         <Route path="/events" element={<Event/>}/>
         <Route path="/profile" element={<Profile/>}/>
         <Route path="/edit-profile" element={<EditProfile/>}/>
+        <Route path="/googlesignup" element={<GoogleSignIn/>}></Route>
       </Routes>
       <Footer />
 
