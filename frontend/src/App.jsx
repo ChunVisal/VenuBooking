@@ -13,6 +13,9 @@ import Profile from "./pages/Profile"
 import Wishlist from "./pages/Wishlist"
 import EditProfile from "./pages/EditProfile"
 import GoogleSignIn from "./pages/GoogleSignIn"
+import ProtectedRoute from './pages/ProtectedRoute';
+import MyEvents from './pages/MyEvents';
+import EditEvent from './pages/EditEvent';
 
 function App() {
 return (
@@ -26,10 +29,26 @@ return (
         <Route path="/login" element={<Login/>}/>
         <Route path="/my-bookings" element={<MyBooking/>}/>
         <Route path="/create-event" element={<CreateEvent/>}/>
+        <Route path="/my-events" element={<MyEvents />} />
         <Route path="/events" element={<Event/>}/>
-        <Route path="/profile" element={<Profile/>}/>
         <Route path="/edit-profile" element={<EditProfile/>}/>
         <Route path="/googlesignup" element={<GoogleSignIn/>}></Route>
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <Profile/>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/edit-event/:id" 
+          element={
+            <ProtectedRoute>
+              <EditEvent />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
       <Footer />
 

@@ -22,7 +22,7 @@ const issueJwtAndRespond = (res, id, email) => {
     sameSite: "Lax",
     maxAge: 3600000,
   });
-  return res;
+  return {res, token};
 };
 
 // Google login / register
@@ -96,7 +96,7 @@ router.get("/verify", (req, res) => {
     const { token } = req.query;
     
     const q = "UPDATE users SET is_verified = 1, verification_token = NULL WHERE verification_token = ?";
-    db.query(q, [token], (err, data) => {
+    db.query(q, [token], (err, data) => {   
         if (err) return res.status(500).json(err);
         if (data.affectedRows === 0) return res.status(400).json("Invalid or expired verification token.");
 
@@ -120,9 +120,18 @@ router.post("/login", (req, res) => {
         const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
         if (!isPasswordCorrect) return res.status(400).json("Wrong username or password!");
 
-        issueJwtAndRespond(res, user.id, user.email)
-            .status(200)
-            .json({ id: user.id, name: user.name, email: user.email, message: "Login successful" });
+        const { res: response, token } = issueJwtAndRespond(res, user.id, user.email);
+
+        response.status(200).json({ 
+        // 🚨 IMPORTANT: Send the user data as 'user' object for AuthContext
+        user: { 
+            id: user.id, 
+            name: user.name, 
+            email: user.email,
+        },
+        token: token, // <--- Now the frontend can read this!
+        message: "Login successful" 
+    });
     });
 });
 

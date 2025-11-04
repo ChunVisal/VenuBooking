@@ -137,7 +137,7 @@ router.get("/", (_req, res) => {
 })
 
 // Get all events (protected route)
-router.get("/my-listings", verifyToken, (_req, res) => {
+router.get("/user/events", verifyToken, (_req, res) => {
     const q = "SELECT * FROM events WHERE user_id = ?";
 
     db.query(q, [_req.user.id], (err, data) => {

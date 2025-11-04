@@ -70,8 +70,6 @@ export default function Login() {
             
             // ✅ Set user and store token in local storage (Requirement 4)
             SetCurrentUser(res.data.user); 
-            localStorage.setItem('token', res.data.token); 
-
             navigate("/profile");
 
         } catch (err) {
