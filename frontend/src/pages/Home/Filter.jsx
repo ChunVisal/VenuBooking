@@ -13,7 +13,6 @@ const eventTypes = [
   { value: 'concert', label: 'Concert' },
   // ... rest of your event types
 ];
-
 const FilterSection = () => {
   // NOTE: All logic (useState, useCallback, handleSearch, handleReset, etc.) has been removed.
 

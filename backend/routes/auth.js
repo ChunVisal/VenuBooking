@@ -1,216 +1,188 @@
-// routes/auth.js
+// backend/routes/auth.js
 import express from "express";
 import db from "../config/db.js"
-import bcrypt from "bcryptjs"; // for hashing passwords
-import jwt from "jsonwebtoken"; // for generating JWT tokens
+import bcrypt from "bcryptjs"; 
+import jwt from "jsonwebtoken"; 
 import { verifyToken } from "../middleware/verifyToken.js"; 
-import { sendVerificationEmail } from "../utils/mailer.js";
+import { sendVerificationEmail } from "../utils/mailer.js"; 
 import crypto from "crypto";
+import { OAuth2Client } from 'google-auth-library';
 
+// CLIENT ID setup
+const CLIENT_ID = "1659854909-eleor0ckd60rshs6f17uv0542bi24brp.apps.googleusercontent.com"; 
+const googleClient = new OAuth2Client(CLIENT_ID);
 const router = express.Router();
 
-// Register new user
-router.post("/register", (_req, res) => {
-    const { name, email, password} = _req.body;
+// Issue JWT and set cookie
+const issueJwtAndRespond = (res, id, email) => {
+  const token = jwt.sign({ id, email }, "your-secret-key", { expiresIn: "1h" });
+  res.cookie("access_token", token, {
+    httpOnly: true,
+    secure: false, // for localhost
+    sameSite: "Lax",
+    maxAge: 3600000,
+  });
+  return {res, token};
+};
 
-    // 1. Check if user already exists
-    const q = "SELECT * FROM users WHERE email = ? OR name = ?";
+// Google login / register
+router.post("/google/callback", async (req, res) => {
+  const googleToken = req.body.credential;
+  if (!googleToken) return res.status(400).json({ error: "Google token missing." });
 
-    db.query(q, [email, name], async (err, data) => {// NOTE: Changed to async to use await with email sender
-        if (err) {
-            console.error("DB Error on register check:", err);
-            return res.status(500).json(err);
-        }
-        if (data.length) return res.status(409).json("User already exists with this email!");
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: googleToken,
+      audience: CLIENT_ID,
+    });
 
-        // 2. Hash Password and Generate Verification Token
+    const { email, name } = ticket.getPayload();
+    const q = "SELECT * FROM users WHERE email = ?";
+
+    db.query(q, [email], (err, data) => {
+      if (err) return res.status(500).json({ error: "Database error." });
+
+      if (data.length === 0) {
+        const dummyPassword = bcrypt.hashSync(crypto.randomBytes(16).toString("hex"), 10);
+        const insertQ = "INSERT INTO users (`name`, `email`, `password`, `is_verified`) VALUES (?, ?, ?, 1)";
+        db.query(insertQ, [name, email, dummyPassword], (insertErr, insertData) => {
+          if (insertErr) return res.status(500).json({ error: "Registration failed." });
+          issueJwtAndRespond(res, insertData.insertId, email)
+            .status(200)
+            .json({ success: true, message: "New user registered and logged in." });
+        });
+      } else {
+        issueJwtAndRespond(res, data[0].id, email)
+          .status(200)
+          .json({ success: true, message: "User logged in successfully." });
+      }
+    });
+  } catch (error) {
+    console.error("Google verification failed:", error);
+    res.status(401).json({ error: "Token verification failed." });
+  }
+});
+
+// =============================================================
+// YOUR EXISTING STANDARD ROUTES
+// =============================================================
+
+// Endpoint: POST /api/auth/register
+router.post("/register", async (req, res) => {
+    const q = "SELECT * FROM users WHERE email = ?";
+    db.query(q, [req.body.email], async (err, data) => {
+        if (err) return res.status(500).json(err);
+        if (data.length) return res.status(409).json("User already exists!");
+
         const salt = bcrypt.genSaltSync(10);
-        const hashedPassword = bcrypt.hashSync(password, salt);
+        const hash = bcrypt.hashSync(req.body.password, salt);
+        const verificationToken = crypto.randomBytes(32).toString('hex');
         
-        // Generate a simple, secure 32-character hex token for the verification link
-        const verificationToken = crypto.randomBytes(16).toString('hex'); 
+        const insertQuery = "INSERT INTO users (`name`,`email`,`password`, `verification_token`, `is_verified`) VALUES (?)";
+        const values = [req.body.name, req.body.email, hash, verificationToken, 0];
 
-        // 3. Insert new user into DB with token and unverified status (is_verified = 0)
-        const InsertQuery = "INSERT INTO users (`name`, `email`, `password`, `verification_token`) VALUES (?, ?, ?, ?)";
-        const values = [name, email, hashedPassword, verificationToken];
-
-        db.query(InsertQuery, values, async (err, _data) => {
-            if (err) {
-                console.error("DB Error on user insert:", err);
-                return res.status(500).json("Database error: Failed to create user.");
-            }
+        db.query(insertQuery, [values], (err) => {
+            if (err) return res.status(500).json(err);
             
-            // 4. Send Verification Email
-            try {
-                await sendVerificationEmail(email, verificationToken);
-                return res.status(201).json("User created. Please check your email to verify your account!");
-            } catch (emailError) {
-                console.error("Email send failed, but user created:", emailError.message);
-                // Return a 201 success but warn the user that verification email failed (for robustness)
-                return res.status(201).json("User created. WARNING: Verification email failed to send. Try logging in later.");
-            }
+            sendVerificationEmail(req.body.email, verificationToken);
+
+            return res.status(200).json("User created. Check your email for verification link.");
         });
     });
 });
-// Login user
-router.post("/login", (_req, res) => {
-    const { email, password } = _req.body;
 
-    // Check if user exists
+// Endpoint: GET /api/auth/verify
+router.get("/verify", (req, res) => {
+    const { token } = req.query;
+    
+    const q = "UPDATE users SET is_verified = 1, verification_token = NULL WHERE verification_token = ?";
+    db.query(q, [token], (err, data) => {   
+        if (err) return res.status(500).json(err);
+        if (data.affectedRows === 0) return res.status(400).json("Invalid or expired verification token.");
+
+        res.redirect("http://localhost:5173/login?verification=success");
+    });
+});
+
+// Endpoint: POST /api/auth/login
+router.post("/login", (req, res) => {
     const q = "SELECT * FROM users WHERE email = ?";
-    db.query(q, [email], (err, data) => {
+    db.query(q, [req.body.email], (err, data) => {
         if (err) return res.status(500).json(err);
         if (data.length === 0) return res.status(404).json("User not found!");
 
         const user = data[0];
 
-        // 2. Check Verification Status (NEW STEP!)
-        if (user.is_verified === 0) {
+        if (user.is_verified !== 1) {
             return res.status(403).json("Account not verified. Please check your email.");
         }
 
-        // Compare provided password with hashed password in DB
-        const isPasswordValid = bcrypt.compareSync(password, user.password);
-        if (!isPasswordValid) return res.status(400).json("Wrong password!");
-        
-        // Generate JWT token (optional, not implemented here)
-        const token = jwt.sign({ id: user.id, email: user.email}, "your-secret-key");
-        // Remove the password from the user object before sending response
-        const { password: userPassword, verifyToken_token, ...otherDetails } = user;
-        // Send user details and token
+        const isPasswordCorrect = bcrypt.compareSync(req.body.password, user.password);
+        if (!isPasswordCorrect) return res.status(400).json("Wrong username or password!");
 
-        return res
-        .cookie("access_token", token, {
-            httpOnly: true, // Prevents client-side JavaScript access (critical security measure)
-            // secure: true, // Use this in production with HTTPS
-            maxAge: 3600000 // 1 hour expiration (example)
-        })
-        .status(200)
-        .json(otherDetails); 
-        
+        const { res: response, token } = issueJwtAndRespond(res, user.id, user.email);
+
+        response.status(200).json({ 
+        // 🚨 IMPORTANT: Send the user data as 'user' object for AuthContext
+        user: { 
+            id: user.id, 
+            name: user.name, 
+            email: user.email,
+        },
+        token: token, // <--- Now the frontend can read this!
+        message: "Login successful" 
+    });
     });
 });
 
-
-// NEW ROUTE: Verify Email Token
-// Endpoint: GET /api/auth/verify?token=...
-router.get("/verify", (_req, res) => {
-    const token = _req.query.token;
-
-    if (!token) {
-        // In a real app, redirect to an error page
-        return res.status(400).send("Verification failed: Token missing.");
-    }
-
-    // 1. Find user by verification token
-    const q = "SELECT * FROM users WHERE verification_token = ?";
+// Endpoint: PUT /api/auth/update
+router.put("/update", verifyToken, (req, res) => {
+    const userId = req.user.id;
+    const { name, email, password } = req.body;
     
-    db.query(q, [token], (err, data) => {
-        if (err) {
-            console.error("DB error on verification:", err);
-            return res.status(500).send("Verification failed due to server error.");
-        }
-
-        if (data.length === 0) {
-            // Redirect to an error page or a message saying the link is invalid/expired
-            return res.status(404).send("Verification failed: Invalid or expired token.");
-        }
-
-        const userId = data[0].id;
-
-        // 2. Update user status: Set is_verified = 1 and clear the verification_token
-        const updateQuery = "UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?";
-        
-        db.query(updateQuery, [userId], (err, _updateData) => {
-            if (err) {
-                console.error("DB error on verification update:", err);
-                return res.status(500).send("Verification failed: Could not update status.");
-            }
-            
-            // 3. Success: Redirect or send a success message.
-            // For a better UX, redirect to the login page with a success query parameter.
-            // You will need to handle this redirect in your React app.
-            return res.redirect("http://localhost:5173/login?verified=true");
-            // Alternatively, just send a simple success message:
-            // return res.status(200).send("Email successfully verified! You can now log in.");
-        });
-    });
-});
-
-// Display on UI
-router.get("/me", verifyToken, (_req, res) => res.status(200).json({
-    id: _req.user.id,
-    name: _req.user.name, // Assuming you add 'name' to the JWT payload
-    email: _req.user.email,
-    message: "Session is valid."
-}));
-
-// PUT Update User Profile (Protected)
-// Endpoint: PUT /api/auth/profile
-router.put("/profile", verifyToken, (_req, res) => {
-    // Only allow updating name and email. Password update is separate.
-    const { name, email } = _req.body;
-    const userId = _req.user.id; // User ID comes from the verified token
-
-    // Input validation (optional but recommended)
-    if (!name && !email) {
-        return res.status(400).json("Please provide name or email to update.");
-    }
-    
-    // Check if the new email is already in use by another user
-    if (email) {
-        const checkEmailQuery = "SELECT id FROM users WHERE email = ? AND id != ?";
-        db.query(checkEmailQuery, [email, userId], (err, data) => {
-            if (err) return res.status(500).json(err);
-            if (data.length > 0) {
-                return res.status(409).json("This email is already taken by another user.");
-            }
-        });
-    }
-
-    // Build the dynamic update query
-    let q = "UPDATE users SET ";
-    const values = [];
-    const fields = [];
-
-    if (name) {
-        fields.push("`name` = ?");
-        values.push(name);
-    }
-    if (email) {
-        fields.push("`email` = ?");
-        values.push(email);
-    }
-
-    // If there are fields to update, execute the query
-    if (fields.length > 0) {
-        q += fields.join(", ") + " WHERE id = ?";
-        values.push(userId);
-
-        db.query(q, values, (err, data) => {
-            if (err) {
-                console.error("User update error:", err);
-                return res.status(500).json(err);
-            }
-            if (data.affectedRows === 0) {
-                return res.status(404).json("User not found or nothing to update.");
-            }
-            return res.status(200).json("Profile updated successfully!");
-        });
-    } else {
-        // Should be caught by the initial validation, but included for completeness
+    if (!name && !email && !password) {
         return res.status(200).json("No changes provided.");
     }
+
+    let updateFields = [];
+    let updateValues = [];
+
+    if (name) {
+        updateFields.push("name = ?");
+        updateValues.push(name);
+    }
+    if (email) {
+        updateFields.push("email = ?");
+        updateValues.push(email);
+    }
+    if (password) {
+        const salt = bcrypt.genSaltSync(10);
+        const hash = bcrypt.hashSync(password, salt);
+        updateFields.push("password = ?");
+        updateValues.push(hash);
+    }
+
+    const q = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+    updateValues.push(userId);
+
+    db.query(q, updateValues, (err, data) => {
+        if (err) {
+            console.error("Update error:", err);
+            return res.status(500).json("Failed to update user.");
+        }
+        if (data.affectedRows === 0) {
+            return res.status(404).json("User not found.");
+        }
+        return res.status(200).json("User updated successfully.");
+    });
 });
 
 
-// Logout user
+// Endpoint: POST /api/auth/logout
 router.post("/logout", (_req, res) => {
     return res
     .clearCookie("access_token", {
         httpOnly: true,
-        secure: true, // Use this in production with HTTPS
-        sameSite: "none" // Adjust based on your requirements
     })
     .status(200)
     .json("User has been logged out.");
@@ -218,10 +190,8 @@ router.post("/logout", (_req, res) => {
 
 // Endpoint: DELETE /api/auth/delete
 router.delete("/delete", verifyToken, (_req, res) => {
-    const userId = _req.user.id; // User ID comes from the verified token
+    const userId = _req.user.id; 
 
-    // CRITICAL: You should also delete associated data (bookings, wishlists) 
-    // or set up CASCADE DELETE in your DB schema. We'll just delete the user for now.
     const q = "DELETE FROM users WHERE id = ?";
 
     db.query(q, [userId], (err, data) => {
@@ -233,15 +203,12 @@ router.delete("/delete", verifyToken, (_req, res) => {
             return res.status(404).json("User account not found.");
         }
         
-        // Clear the cookie immediately upon successful deletion
         return res
             .clearCookie("access_token", {
                 httpOnly: true,
-                secure: true, 
-                sameSite: "none" 
             })
             .status(200)
-            .json("User account deleted successfully. Goodbye!");
+            .json("User account deleted.");
     });
 });
 

@@ -5,6 +5,76 @@ import { verifyToken } from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
+// New route for Google Sign-In
+router.post("/google", async (req, res) => {
+    const { googleToken } = req.body;
+
+    if (!googleToken) {
+        return res.status(400).json("Google token missing.");
+    }
+
+    try {
+        // 1. Verify the ID Token with Google
+        const ticket = await googleClient.verifyIdToken({
+            idToken: googleToken,
+            audience: CLIENT_ID, // Specify the CLIENT_ID of the app that accesses the backend
+        });
+
+        const payload = ticket.getPayload();
+        const { email, name } = payload;
+        
+        // **IMPORTANT:** Google already verified this email!
+
+        // 2. Check if the user exists in your database
+        const q = "SELECT * FROM users WHERE email = ?";
+        db.query(q, [email], async (err, data) => {
+            if (err) return res.status(500).json("DB Error during Google sign-in check.");
+
+            let userId;
+            
+            if (data.length === 0) {
+                // 3a. User is NEW: Register them automatically
+                const InsertQuery = "INSERT INTO users (`name`, `email`, `is_verified`) VALUES (?, ?, 1)";
+                // We don't need a password since they signed in with Google
+                
+                db.query(InsertQuery, [name, email], (insertErr, insertData) => {
+                    if (insertErr) {
+                        console.error("DB Error on Google user insert:", insertErr);
+                        return res.status(500).json("Database error: Failed to register user.");
+                    }
+                    userId = insertData.insertId;
+                    
+                    // Proceed to issue JWT and login
+                    issueJwtAndRespond(res, userId, email);
+                });
+            } else {
+                // 3b. User EXISTS: Log them in
+                userId = data[0].id;
+                issueJwtAndRespond(res, userId, email);
+            }
+        });
+
+    } catch (error) {
+        console.error("Google Token Verification Failed:", error);
+        return res.status(401).json("Invalid or expired Google token.");
+    }
+});
+
+
+// Helper function to issue JWT (same as your current login flow)
+const issueJwtAndRespond = (res, id, email) => {
+    const token = jwt.sign({ id, email }, "your-secret-key", { expiresIn: '1h' }); 
+    
+    // Use the same cookie logic as your regular /login route
+    return res
+        .cookie("access_token", token, {
+            httpOnly: true,
+            maxAge: 3600000 
+        })
+        .status(200)
+        .json({ id, email, message: "Google Sign-In successful" });
+};
+
 // GET Single Event detail by ID (Public)
 router.get("/:id", (_req, res) => {
     const eventId = _req.params.id;
@@ -67,7 +137,7 @@ router.get("/", (_req, res) => {
 })
 
 // Get all events (protected route)
-router.get("/my-listings", verifyToken, (_req, res) => {
+router.get("/user/events", verifyToken, (_req, res) => {
     const q = "SELECT * FROM events WHERE user_id = ?";
 
     db.query(q, [_req.user.id], (err, data) => {
