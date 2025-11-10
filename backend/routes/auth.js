@@ -14,7 +14,7 @@ const googleClient = new OAuth2Client(CLIENT_ID);
 const router = express.Router();
 
 // Issue JWT and set cookie
-const issueJwtAndRespond = (res, id, email) => {
+const issueJwtAndRespond = (res, id, email, name) => {
   const token = jwt.sign({ id, email }, "your-secret-key", { expiresIn: "1h" });
   res.cookie("access_token", token, {
     httpOnly: true,
@@ -22,7 +22,13 @@ const issueJwtAndRespond = (res, id, email) => {
     sameSite: "Lax",
     maxAge: 3600000,
   });
-  return {res, token};
+  // ✅ Send a response body to frontend
+  return res.status(200).json({
+    success: true,
+    message: "Login successful",
+    token,
+    user: { id, email, name },
+  });
 };
 
 // Google login / register
@@ -47,14 +53,10 @@ router.post("/google/callback", async (req, res) => {
         const insertQ = "INSERT INTO users (`name`, `email`, `password`, `is_verified`) VALUES (?, ?, ?, 1)";
         db.query(insertQ, [name, email, dummyPassword], (insertErr, insertData) => {
           if (insertErr) return res.status(500).json({ error: "Registration failed." });
-          issueJwtAndRespond(res, insertData.insertId, email)
-            .status(200)
-            .json({ success: true, message: "New user registered and logged in." });
+          issueJwtAndRespond(res, insertData.insertId, email);
         });
       } else {
-        issueJwtAndRespond(res, data[0].id, email)
-          .status(200)
-          .json({ success: true, message: "User logged in successfully." });
+       issueJwtAndRespond(res, data[0].id, email); 
       }
     });
   } catch (error) {
