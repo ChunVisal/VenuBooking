@@ -14,7 +14,7 @@ const EventList = () => {
      <div className="flex overflow-x-auto gap-4 snap-x snap-mandatory">
           {filteredEvents.map((event) => (
             <TrendingCard key={event.id} event={event} />
-          ))}
+        ))}
         </div>
       </div>
     </section>

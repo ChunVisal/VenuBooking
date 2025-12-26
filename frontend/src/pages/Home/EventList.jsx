@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import api from "../../api/axiosConfig"
 import EventCard from '../../components/events/EventCard';
 
+
+
 export default function EventList() {
     const [events, setEvent] = useState();
     const [loading, setLoading] = useState(true);
