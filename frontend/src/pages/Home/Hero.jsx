@@ -68,7 +68,7 @@ const HeroSection = () => {
         <div className="flex gap-6 text-gray-400 text-[12.5px] mt-2">
           <span>10,000+ Bookings</span>
           <span>Trusted by 500+ Venues</span>
-          <span>Event Avaiable 100+</span>
+          <span>Event Available 100+</span>
         </div>
       </div>
 

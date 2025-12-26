@@ -123,7 +123,7 @@ router.post("/", verifyToken, (_req, res) => {
 
 // Get all events Public route
 router.get("/", (_req, res) => {
-    // FIX: This query selects ALL events from the table.
+    // FIX: This query selects ALL events from the table.   
     const q = "SELECT * FROM events"; 
 
     db.query(q, (err, data) => {
@@ -147,38 +147,83 @@ router.get("/user/events", verifyToken, (_req, res) => {
 })
 
 // Update an event (protected route)
-router.put("/:id", verifyToken, (_req, res) => {
-    const q = "UPDATE events SET `title`=?, `description`=?, `date`=?, `venue`=?, `price`=? WHERE `id`=? AND `user_id`=?";
+router.put("/:id", verifyToken, (req, res) => {
+  const {
+    title,
+    description,
+    date,
+    venue,
+    price,
+    category,
+    image,
+    availableSeats,
+    tags,
+    eventType,
+    location,
+    rating
+  } = req.body;
 
-    let eventDate = _req.body.date;
-    if (eventDate && typeof eventDate === 'string') {
-        eventDate = eventDate.replace('T', ' ').slice(0, 19);
+  // Convert ISO date format (e.g., "2025-11-12T18:00") into MySQL datetime
+  let eventDate = date;
+  if (eventDate && typeof eventDate === "string") {
+    eventDate = eventDate.replace("T", " ").slice(0, 19);
+  }
+
+  // Handle free or unlimited seat events
+  const eventPrice = price ? price : 0; // default = free
+  const seats = availableSeats ? availableSeats : null; // null means unlimited
+
+  // Update query
+  const q = `
+    UPDATE events SET 
+      title = ?, 
+      description = ?, 
+      date = ?, 
+      venue = ?, 
+      price = ?, 
+      category = ?, 
+      image = ?, 
+      availableSeats = ?, 
+      tags = ?, 
+      eventType = ?, 
+      location = ?, 
+      rating = ?
+    WHERE id = ? AND user_id = ?
+  `;
+
+  const values = [
+    title,
+    description,
+    eventDate,
+    venue,
+    eventPrice,
+    category,
+    image,
+    seats,
+    JSON.stringify(tags || []),
+    eventType || "offline",
+    location,
+    rating || null,
+    req.params.id,
+    req.user.id,
+  ];
+
+  db.query(q, values, (err, data) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).json(err);
     }
 
-    const values = [
-        _req.body.title,
-        _req.body.description,
-        eventDate,
-        _req.body.venue,
-        _req.body.price,
-        _req.params.id,
-        _req.user.id
-    ];
+    if (data.affectedRows === 0) {
+      return res
+        .status(403)
+        .json("Error: Event not found or you're not authorized to update it.");
+    }
 
-    db.query(q, values, (err, data) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).json(err);
-        }
-
-        if (data.affectedRows === 0) {
-            // This happens if the event ID is wrong OR if req.user.id does not own the event.
-            return res.status(403).json("Error: Event not found or you are not authorized to update this event.");
-        }
-
-        return res.status(200).json("Event has been updated successfully!");
-    })
+    return res.status(200).json("✅ Event has been updated successfully!");
+  });
 });
+
 
 // Delete an event (protected route)
 router.delete("/:id", verifyToken, (_req, res) => {

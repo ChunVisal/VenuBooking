@@ -1,119 +1,265 @@
 // src/pages/CreateEventPage.jsx
 
-import React, { useState, useContext } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import api from '../api/axiosConfig';
-import { AuthContext } from '../context/AuthContext'; // Import your authentication context
+import React, { useState, useContext } from "react";
+import { useNavigate, Navigate } from "react-router-dom";
+import api from "../api/axiosConfig";
+import { AuthContext } from "../context/AuthContext";
 
 const CreateEventPage = () => {
-    // 1. Get Authentication Context
-    const { currentUser, loading } = useContext(AuthContext); 
-    const navigate = useNavigate();
+  const { currentUser, loading } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-    // 2. State for Form Inputs (Matching your SQL Columns)
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        date: '',
-        venue: '',
-        price: '',
-    });
+  // ✅ Form fields matching your backend schema
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    date: "",
+    venue: "",
+    price: "",
+    category: "",
+    image: "",
+    availableSeats: "",
+    eventType: "offline", // default
+    location: "",
+    tags: "",
+  });
 
-    // 3. State for UI Feedback
-    const [error, setError] = useState('');
-    const [message, setMessage] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 4. Handle input changes (Generic handler for all fields)
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prevData => ({
-            ...prevData,
-            [name]: value
-        }));
-    };
+  // ✅ Handle Input Change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-    // 5. Secure Submission Handler
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setMessage('');
-        setIsSubmitting(true);
+  // ✅ Submit Handler
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
 
-        // Simple validation check
-        if (!formData.title || !formData.date || !formData.price) {
-            setError("Please fill out all required fields.");
-            setIsSubmitting(false);
-            return;
-        }
-
-        try {
-            // CRITICAL: api.post uses the cookie automatically for authentication
-            const res = await api.post('/events', formData); 
-
-            setMessage(res.data || "Event created successfully!");
-            // Clear the form after success
-            setFormData({ title: '', description: '', date: '', venue: '', price: '' });
-
-            // Navigate to the user's listings after a short delay
-            setTimeout(() => {
-                navigate('/my-listings'); // Make sure this route exists!
-            }, 1500);
-
-        } catch (err) {
-            console.error("Event creation failed:", err);
-            const errorMessage = err.response?.data?.error || err.response?.data || "An unexpected error occurred.";
-            setError(errorMessage);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
-    // 6. Protection: Wait for loading or redirect if not logged in
-    if (loading) {
-        return <div style={{textAlign: 'center', padding: '50px'}}>Loading user status...</div>;
+    if (!formData.title || !formData.date || !formData.venue) {
+      setError("Please fill out all required fields.");
+      setIsSubmitting(false);
+      return;
     }
 
-    if (!currentUser) {
-        // If not logged in, redirect them to the login page
-        return <Navigate to="/login" replace />; 
-    }
+    try {
+      // Convert tags string → array
+      const payload = {
+        ...formData,
+        tags: formData.tags
+          ? formData.tags.split(",").map((tag) => tag.trim())
+          : [],
+        price: formData.price ? parseFloat(formData.price) : 0,
+        availableSeats: formData.availableSeats
+          ? parseInt(formData.availableSeats)
+          : null,
+      };
 
-    // 7. Render Form (JSX)
+      const res = await api.post("/events", payload);
+      setMessage(res.data || "Event created successfully!");
+
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        date: "",
+        venue: "",
+        price: "",
+        category: "",
+        image: "",
+        availableSeats: "",
+        eventType: "offline",
+        location: "",
+        tags: "",
+      });
+
+      setTimeout(() => navigate("/my-listings"), 1500);
+    } catch (err) {
+      console.error("Event creation failed:", err);
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data ||
+        "An unexpected error occurred.";
+      setError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ✅ Loading / Redirect Protection
+  if (loading)
     return (
-        <div className="create-event-container" style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-            <h2>Create New VenuBooking Event</h2>
-            <p>Posting as: **{currentUser.name}** ({currentUser.email})</p>
-            
-            {message && <p style={{ color: 'green', fontWeight: 'bold' }}>{message}</p>}
-            {error && <p style={{ color: 'red', border: '1px solid red', padding: '10px' }}>Error: {error}</p>}
-
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '15px' }}>
-                <input type="text" name="title" placeholder="Event Title (e.g., React Workshop)" value={formData.title} onChange={handleChange} required />
-                
-                <textarea name="description" placeholder="Full description of the event..." value={formData.description} onChange={handleChange} required rows="4"></textarea>
-                
-                {/* NOTE: Input type="datetime-local" sends data in the format your backend needs */}
-                <label>Date and Time:</label>
-                <input type="datetime-local" name="date" value={formData.date} onChange={handleChange} required />
-
-                <input type="text" name="venue" placeholder="Venue Name (e.g., Tech Hub Center)" value={formData.venue} onChange={handleChange} required />
-                
-                <input type="number" name="price" placeholder="Price (e.g., 25.00)" value={formData.price === 0 ? '' : formData.price} onChange={handleChange} required step="0.01" />
-
-                <button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Submitting...' : 'Post Event'}INSERT INTO users (id, name, email, password, created_at)
-                    VALUES (
-                        id:int,
-                        'name:varchar',
-                        'email:varchar',
-                        'password:varchar',
-                        'created_at:timestamp'
-                      );
-                </button>
-            </form>
-        </div>
+      <div className="text-center py-10 text-gray-500">
+        Checking user status...
+      </div>
     );
+
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  // ✅ Responsive Layout + Tailwind Design
+  return (
+    <div className="min-h-screen bg-gray-100 flex justify-center items-start py-10 px-4">
+      <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-2xl">
+        <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
+          Create New Event 🎟️
+        </h2>
+        <p className="text-center text-sm text-gray-500 mb-6">
+          Posting as <span className="font-semibold">{currentUser.name}</span> (
+          {currentUser.email})
+        </p>
+
+        {message && (
+          <p className="text-green-600 font-semibold bg-green-50 border border-green-200 p-3 rounded mb-4">
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="text-red-600 font-semibold bg-red-50 border border-red-200 p-3 rounded mb-4">
+            {error}
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          {/* Event Title */}
+          <input
+            type="text"
+            name="title"
+            placeholder="Event Title"
+            value={formData.title}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            required
+          />
+
+          {/* Description */}
+          <textarea
+            name="description"
+            placeholder="Full description of the event..."
+            value={formData.description}
+            onChange={handleChange}
+            rows="4"
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            required
+          ></textarea>
+
+          {/* Date & Time */}
+          <label className="text-gray-600 font-medium">Date and Time</label>
+          <input
+            type="datetime-local"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            required
+          />
+
+          {/* Venue */}
+          <input
+            type="text"
+            name="venue"
+            placeholder="Venue (e.g., Tech Hub Center)"
+            value={formData.venue}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            required
+          />
+
+          {/* Price */}
+          <input
+            type="number"
+            name="price"
+            placeholder="Price (0 for Free)"
+            value={formData.price}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            step="0.01"
+          />
+
+          {/* Category */}
+          <input
+            type="text"
+            name="category"
+            placeholder="Category (e.g., Concert, Workshop)"
+            value={formData.category}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Image URL */}
+          <input
+            type="url"
+            name="image"
+            placeholder="Image URL"
+            value={formData.image}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Available Seats */}
+          <input
+            type="number"
+            name="availableSeats"
+            placeholder="Available Seats (leave blank for unlimited)"
+            value={formData.availableSeats}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Event Type */}
+          <select
+            name="eventType"
+            value={formData.eventType}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="offline">Offline</option>
+            <option value="online">Online</option>
+          </select>
+
+          {/* Location */}
+          <input
+            type="text"
+            name="location"
+            placeholder="Address or Link (for online events)"
+            value={formData.location}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Tags */}
+          <input
+            type="text"
+            name="tags"
+            placeholder="Tags (comma separated, e.g. music,night,fun)"
+            value={formData.tags}
+            onChange={handleChange}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`p-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+              isSubmitting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {isSubmitting ? "Submitting..." : "Post Event"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default CreateEventPage;

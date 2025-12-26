@@ -18,7 +18,6 @@ const useGoogleSignIn = (navigate, SetCurrentUser) => {
                 
                 // Assuming successful response includes user data and token
                 SetCurrentUser(res.data.user);
-                localStorage.setItem('token', res.data.token);
                 navigate("/profile");
 
             } catch (err) {

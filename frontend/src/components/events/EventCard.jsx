@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'; // <-- ADDED useNavigate
 import { useState, useContext } from 'react'; // <-- ADDED useContext
 import { AuthContext } from '../../context/AuthContext'; // <-- IMPORT AuthContext
 import api from '../../api/axiosConfig'; // <-- IMPORT api for requests
+import { Search, Bell, User, Calendar, Plus, Heart, BookOpen, Menu, X, Home } from 'lucide-react';
 
 const EventCard = ({ event }) => {
     // 1. PULL IN CONTEXT AND HOOKS
@@ -12,7 +13,7 @@ const EventCard = ({ event }) => {
     const [isWished, setIsWished] = useState(false);
 
     const handleAddToWishlist = async () => {
-        // FIX: Now currentUser is defined
+    // FIX: Now currentUser is defined
         if (!currentUser) {
             alert("Please log in to add to your wishlist.");
             navigate('/login');
@@ -21,7 +22,7 @@ const EventCard = ({ event }) => {
 
         try {
             // FIX: Use event.id since 'id' is not defined in this component
-            // Hits POST /api/wishlist/:eventId
+            // Hits POST /api/wishlist/:eventIdf
             const res = await api.post(`/wishlist/${event.id}`); 
             alert(res.data);
             setIsWished(true); // Update state
@@ -39,23 +40,18 @@ const EventCard = ({ event }) => {
     };
 
     return (
-        <div className="event-card" style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px', boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{marginBottom: '5px'}}>{event.title}</h3>
-            <p style={{fontSize: '0.9em', color: '#555'}}>@ {event.venue}</p>
-            <p><strong>Date:</strong> {formatDate(event.date)}</p>
-            <p style={{fontWeight: 'bold', color: 'green'}}>Price: ${parseFloat(event.price).toFixed(2)}</p>
-            
-            <div>
-                <Link to={`/event/${event.id}`}>
-                    <button style={{marginTop: '10px', padding: '8px 15px', cursor: 'pointer'}}>View Details / Buy Ticket</button>
-                </Link>
+       <div style={{weight: '300px', border: '1px solid #ccc', borderRadius: '8px', padding: '15px', boxShadow: '2px 2px 12px rgba(0,0,0,0.1)', height: '400px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'}}>
+       
+         <div>
+              
                 <button 
                     onClick={handleAddToWishlist} 
                     // currentUser is now correctly defined
                     disabled={!currentUser || isWished} 
                     style={{
                         padding: '10px 20px', 
-                        backgroundColor: isWished ? '#6c757d' : '#ffc107', 
+                      backgroundColor: isWished ? 'gray' : '#DCDCDC',
+                       borderRadius: '5px',
                         color: 'white', 
                         border: 'none', 
                         cursor: 'pointer', 
@@ -63,10 +59,24 @@ const EventCard = ({ event }) => {
                         marginLeft: '10px'
                     }}
                 >
-                    {isWished ? 'Wished! (View List)' : '✨ Add to Wishlist'}
+                    {isWished ? <Heart color='red'/> : <Heart/>}
                 </button>
             </div>
+        <div className="event-card" style={{weight: '300px',  padding: '15px', }}>
+            <h3 style={{marginBottom: '5px'}}>{event.title}</h3>
+            <p style={{fontSize: '0.9em', color: '#555'}}>@ {event.venue}</p>
+            <p><strong>Date:</strong> {formatDate(event.date)}</p>
+            <p style={{fontWeight: 'bold', color: 'green'}}>Price: ${parseFloat(event.price).toFixed(2)}</p>
+            <div>
+         <Link to={`/event/${event.id}`}>
+                    <button style={{marginTop: '10px', padding: '8px 15px', cursor: 'pointer'}}>View Details / Buy Ticket</button>
+                </Link>
+            </div>
+            
+        
         </div>
+        
+         </div>
     );
 };
 
