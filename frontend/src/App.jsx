@@ -12,7 +12,6 @@ import Event from "./pages/Event"
 import Profile from "./pages/Profile"
 import Wishlist from "./pages/Wishlist"
 import EditProfile from "./pages/EditProfile"
-import GoogleSignIn from "./pages/GoogleSignIn"
 import ProtectedRoute from './pages/ProtectedRoute';
 import MyEvents from './pages/MyEvents';
 import EditEvent from './pages/EditEvent';
@@ -32,7 +31,6 @@ return (
         <Route path="/my-events" element={<MyEvents />} />
         <Route path="/events" element={<Event/>}/>
         <Route path="/edit-profile" element={<EditProfile/>}/>
-        <Route path="/googlesignup" element={<GoogleSignIn/>}></Route>
         <Route 
           path="/profile" 
           element={

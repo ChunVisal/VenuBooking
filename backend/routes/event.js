@@ -1,153 +1,118 @@
-// routes/event.js
 import express from "express";
-import db from "../config/db.js";
+import db from "../config/db.js"; // your pg Pool
 import { verifyToken } from "../middleware/verifyToken.js";
+import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 
 const router = express.Router();
 
-// New route for Google Sign-In
-router.post("/google", async (req, res) => {
-    const { googleToken } = req.body;
+// -------------------------
+// Google Sign-In
+// -------------------------
+const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
+const googleClient = new OAuth2Client(CLIENT_ID);
 
-    if (!googleToken) {
-        return res.status(400).json("Google token missing.");
-    }
+const issueJwtAndRespond = (res, id, email, name) => {
+  const token = jwt.sign({ id, email, name }, process.env.JWT_SECRET, {
+    expiresIn: "1h",
+  });
 
-    try {
-        // 1. Verify the ID Token with Google
-        const ticket = await googleClient.verifyIdToken({
-            idToken: googleToken,
-            audience: CLIENT_ID, // Specify the CLIENT_ID of the app that accesses the backend
-        });
-
-        const payload = ticket.getPayload();
-        const { email, name } = payload;
-        
-        // **IMPORTANT:** Google already verified this email!
-
-        // 2. Check if the user exists in your database
-        const q = "SELECT * FROM users WHERE email = ?";
-        db.query(q, [email], async (err, data) => {
-            if (err) return res.status(500).json("DB Error during Google sign-in check.");
-
-            let userId;
-            
-            if (data.length === 0) {
-                // 3a. User is NEW: Register them automatically
-                const InsertQuery = "INSERT INTO users (`name`, `email`, `is_verified`) VALUES (?, ?, 1)";
-                // We don't need a password since they signed in with Google
-                
-                db.query(InsertQuery, [name, email], (insertErr, insertData) => {
-                    if (insertErr) {
-                        console.error("DB Error on Google user insert:", insertErr);
-                        return res.status(500).json("Database error: Failed to register user.");
-                    }
-                    userId = insertData.insertId;
-                    
-                    // Proceed to issue JWT and login
-                    issueJwtAndRespond(res, userId, email);
-                });
-            } else {
-                // 3b. User EXISTS: Log them in
-                userId = data[0].id;
-                issueJwtAndRespond(res, userId, email);
-            }
-        });
-
-    } catch (error) {
-        console.error("Google Token Verification Failed:", error);
-        return res.status(401).json("Invalid or expired Google token.");
-    }
-});
-
-
-// Helper function to issue JWT (same as your current login flow)
-const issueJwtAndRespond = (res, id, email) => {
-    const token = jwt.sign({ id, email }, "your-secret-key", { expiresIn: '1h' }); 
-    
-    // Use the same cookie logic as your regular /login route
-    return res
-        .cookie("access_token", token, {
-            httpOnly: true,
-            maxAge: 3600000 
-        })
-        .status(200)
-        .json({ id, email, message: "Google Sign-In successful" });
+  return res.status(200).json({
+    success: true,
+    message: "Google Sign-In successful",
+    token,
+    user: { id, email, name },
+  });
 };
 
-// GET Single Event detail by ID (Public)
-router.get("/:id", (_req, res) => {
-    const eventId = _req.params.id;
-    const q = "SELECT * FROM events WHERE id = ?"; 
+router.post("/google", async (req, res) => {
+  const { googleToken } = req.body;
+  if (!googleToken)
+    return res.status(400).json({ error: "Google token missing" });
 
-    db.query(q, [eventId], (err, data) => {
-        if (err) {
-            console.error("Error fetching single event:", err);
-            return res.status(500).json(err);
-        }
-        if (data.length === 0) {
-            return res.status(404).json("Event not found.");
-        }
-        return res.status(200).json(data[0]);
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: googleToken,
+      audience: CLIENT_ID,
     });
+
+    const { email, name } = ticket.getPayload();
+
+    const q = "SELECT * FROM users WHERE email = $1";
+    const userData = await db.query(q, [email]);
+
+    if (userData.rows.length === 0) {
+      // Create new user
+      const insertQ = `
+        INSERT INTO users (name, email, is_verified) 
+        VALUES ($1, $2, true) 
+        RETURNING id, email, name
+      `;
+      const insertData = await db.query(insertQ, [name, email]);
+      return issueJwtAndRespond(res, insertData.rows[0].id, email, name);
+    } else {
+      return issueJwtAndRespond(
+        res,
+        userData.rows[0].id,
+        email,
+        userData.rows[0].name,
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    return res.status(401).json({ error: "Invalid or expired Google token" });
+  }
 });
 
-// Create a new event (protected route)
-router.post("/", verifyToken, (_req, res) => {
-    let eventDate = _req.body.date;
+// -------------------------
+// Get all events (public)
+// -------------------------
+router.get("/", async (_req, res) => {
+  try {
+    const data = await db.query("SELECT * FROM events ORDER BY date ASC");
+    return res.status(200).json(data.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
 
-    if (eventDate && typeof eventDate === 'string') {
-        eventDate = eventDate.replace('T', ' ').replace('.000Z', '');
-    }
+// -------------------------
+// Get single event by ID (public)
+// -------------------------
+router.get("/:id", async (_req, res) => {
+  const eventId = _req.params.id;
+  try {
+    const data = await db.query("SELECT * FROM events WHERE id=$1", [eventId]);
+    if (data.rows.length === 0)
+      return res.status(404).json({ error: "Event not found" });
+    return res.status(200).json(data.rows[0]);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch event" });
+  }
+});
 
-    const q = "INSERT INTO events (`title`, `description`, `date`, `venue`, `price`, `user_id`) VALUES (?, ?, ?, ?, ?, ?)";
- 
-    // Example values, in a real app these would come from _req.body and _req.user
-    const values = [
-        _req.body.title,
-        _req.body.description,
-        eventDate,
-        _req.body.venue,
-        _req.body.price,
-        _req.user.id // Assuming user ID is stored in req.user by verifyToken middleware
-    ] 
+// -------------------------
+// Get events for logged-in user
+// -------------------------
+router.get("/user/events", verifyToken, async (req, res) => {
+  try {
+    const data = await db.query(
+      "SELECT * FROM events WHERE user_id=$1 ORDER BY date ASC",
+      [req.user.id],
+    );
+    return res.status(200).json(data.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch user events" });
+  }
+});
 
-    db.query(q, values, (err, _data) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).json(err);
-        }
-        return res.status(200).json("Event has been created successfully!");
-    })
-})
-
-// Get all events Public route
-router.get("/", (_req, res) => {
-    // FIX: This query selects ALL events from the table.   
-    const q = "SELECT * FROM events"; 
-
-    db.query(q, (err, data) => {
-        if (err) {
-             console.error("Error fetching all events:", err);
-             return res.status(500).json(err);
-        }
-        // Returns the array of all events
-        return res.status(200).json(data); 
-    })
-})
-
-// Get all events (protected route)
-router.get("/user/events", verifyToken, (_req, res) => {
-    const q = "SELECT * FROM events WHERE user_id = ?";
-
-    db.query(q, [_req.user.id], (err, data) => {
-        if (err) return res.status(500).json(err);
-        return res.status(200).json(data);
-    })
-})
-
-// Update an event (protected route)
-router.put("/:id", verifyToken, (req, res) => {
+// -------------------------
+// Create new event
+// -------------------------
+router.post("/", verifyToken, async (req, res) => {
   const {
     title,
     description,
@@ -160,94 +125,123 @@ router.put("/:id", verifyToken, (req, res) => {
     tags,
     eventType,
     location,
-    rating
+    rating,
   } = req.body;
 
-  // Convert ISO date format (e.g., "2025-11-12T18:00") into MySQL datetime
-  let eventDate = date;
-  if (eventDate && typeof eventDate === "string") {
-    eventDate = eventDate.replace("T", " ").slice(0, 19);
-  }
+  try {
+    const q = `
+      INSERT INTO events 
+      (title, description, date, venue, price, category, image, available_seats, tags, event_type, location, rating, user_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      RETURNING *
+    `;
 
-  // Handle free or unlimited seat events
-  const eventPrice = price ? price : 0; // default = free
-  const seats = availableSeats ? availableSeats : null; // null means unlimited
-
-  // Update query
-  const q = `
-    UPDATE events SET 
-      title = ?, 
-      description = ?, 
-      date = ?, 
-      venue = ?, 
-      price = ?, 
-      category = ?, 
-      image = ?, 
-      availableSeats = ?, 
-      tags = ?, 
-      eventType = ?, 
-      location = ?, 
-      rating = ?
-    WHERE id = ? AND user_id = ?
-  `;
-
-  const values = [
-    title,
-    description,
-    eventDate,
-    venue,
-    eventPrice,
-    category,
-    image,
-    seats,
-    JSON.stringify(tags || []),
-    eventType || "offline",
-    location,
-    rating || null,
-    req.params.id,
-    req.user.id,
-  ];
-
-  db.query(q, values, (err, data) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json(err);
-    }
-
-    if (data.affectedRows === 0) {
-      return res
-        .status(403)
-        .json("Error: Event not found or you're not authorized to update it.");
-    }
-
-    return res.status(200).json("✅ Event has been updated successfully!");
-  });
-});
-
-
-// Delete an event (protected route)
-router.delete("/:id", verifyToken, (_req, res) => {
-    const q = "DELETE FROM events WHERE `id`=? AND `user_id`=?";
-    
-    // Example values, in a real app these would come from req.params and req.user
     const values = [
-        _req.params.id,    // <-- The Event ID from the URL parameter
-        _req.user.id       // <-- The User ID from the JWT payload (Authorization)
+      title,
+      description,
+      date,
+      venue,
+      price || 0,
+      category || null,
+      image || null,
+      availableSeats || null,
+      JSON.stringify(tags || []),
+      eventType || "offline",
+      location || null,
+      rating || null,
+      req.user.id,
     ];
 
-    db.query(q, values, (err, data) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).json(err);
-        }
+    const data = await db.query(q, values);
+    return res
+      .status(201)
+      .json({ message: "Event created ✅", event: data.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to create event" });
+  }
+});
 
-        // Check if a row was actually deleted
-        if (data.affectedRows === 0) {
-            return res.status(403).json("Error: Event not found or you are not authorized to delete this event.");
-        }
+// -------------------------
+// Update event
+// -------------------------
+router.put("/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const {
+    title,
+    description,
+    date,
+    venue,
+    price,
+    category,
+    image,
+    availableSeats,
+    tags,
+    eventType,
+    location,
+    rating,
+  } = req.body;
 
-        return res.status(200).json("Event has been deleted successfully!");
-    });
+  try {
+    const q = `
+      UPDATE events SET 
+        title=$1, description=$2, date=$3, venue=$4, price=$5, category=$6, 
+        image=$7, available_seats=$8, tags=$9, event_type=$10, location=$11, rating=$12,
+        updated_at=NOW()
+      WHERE id=$13 AND user_id=$14
+      RETURNING *
+    `;
+    const values = [
+      title,
+      description,
+      date,
+      venue,
+      price || 0,
+      category || null,
+      image || null,
+      availableSeats || null,
+      JSON.stringify(tags || []),
+      eventType || "offline",
+      location || null,
+      rating || null,
+      id,
+      req.user.id,
+    ];
+
+    const data = await db.query(q, values);
+    if (data.rows.length === 0)
+      return res.status(403).json({ error: "Event not found or unauthorized" });
+
+    return res
+      .status(200)
+      .json({ message: "Event updated ✅", event: data.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to update event" });
+  }
+});
+
+// -------------------------
+// Delete event
+// -------------------------
+router.delete("/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const data = await db.query(
+      "DELETE FROM events WHERE id=$1 AND user_id=$2 RETURNING *",
+      [id, req.user.id],
+    );
+
+    if (data.rows.length === 0)
+      return res.status(403).json({ error: "Event not found or unauthorized" });
+
+    return res
+      .status(200)
+      .json({ message: "Event deleted ✅", event: data.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to delete event" });
+  }
 });
 
 export default router;

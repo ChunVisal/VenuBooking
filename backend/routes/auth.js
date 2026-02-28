@@ -1,237 +1,309 @@
 // backend/routes/auth.js
 import express from "express";
-import db from "../config/db.js";
+import db from "../config/db.js"; // PostgreSQL pool
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { upload } from "../config/cloudinary.js";
 import { verifyToken } from "../middleware/verifyToken.js";
-import { sendVerificationEmail } from "../utils/mailer.js";
-import crypto from "crypto";
+import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
 
-// CLIENT ID setup
-const CLIENT_ID =
-  "1659854909-eleor0ckd60rshs6f17uv0542bi24brp.apps.googleusercontent.com";
-const googleClient = new OAuth2Client(CLIENT_ID);
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const router = express.Router();
 
-// Issue JWT and set cookie
-const issueJwtAndRespond = (res, id, email, name) => {
-  const token = jwt.sign({ id, email }, "your-secret-key", { expiresIn: "1h" });
+// ----------------- Helpers -----------------
+const issueJwtAndRespond = (res, user, message = "Success 🍏") => {
+  const token = jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" },
+  );
+
   res.cookie("access_token", token, {
     httpOnly: true,
-    secure: false, // for localhost
-    sameSite: "Lax",
-    maxAge: 3600000,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax", // also fixed spelling
   });
-  // ✅ Send a response body to frontend
-  return res.status(200).json({
-    success: true,
-    message: "Login successful",
+
+  res.json({
+    message: "Login successful ✅",
+    user,
     token,
-    user: { id, email, name },
   });
 };
 
-// Google login / register
-router.post("/google/callback", async (req, res) => {
-  const googleToken = req.body.credential;
-  if (!googleToken)
-    return res.status(400).json({ error: "Google token missing." });
+// ----------------- Test -----------------
+router.get("/test", (_req, res) => {
+  res.send("Auth route is working! 🙋‍♂️");
+});
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  "http://localhost:5000/api/auth/google/callback",
+);
+
+router.get("/google", (req, res) => {
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: ["profile", "email"],
+  });
+  res.redirect(url);
+});
+
+// Google Login
+router.post("/google-login", async (req, res) => {
+  const { credential } = req.body;
+  if (!credential)
+    return res.status(400).json({ message: "No credential provided" });
 
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: googleToken,
-      audience: CLIENT_ID,
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
-    const { email, name } = ticket.getPayload();
-    const q = "SELECT * FROM users WHERE email = ?";
+    const { email, name: username } = ticket.getPayload();
 
-    db.query(q, [email], (err, data) => {
-      if (err) return res.status(500).json({ error: "Database error." });
+    let { rows } = await db.query("SELECT * FROM users WHERE email=$1", [
+      email,
+    ]);
+    let user = rows[0];
 
-      if (data.length === 0) {
-        const dummyPassword = bcrypt.hashSync(
-          crypto.randomBytes(16).toString("hex"),
-          10
-        );
-        const insertQ =
-          "INSERT INTO users (`name`, `email`, `password`, `is_verified`) VALUES (?, ?, ?, 1)";
-        db.query(
-          insertQ,
-          [name, email, dummyPassword],
-          (insertErr, insertData) => {
-            if (insertErr)
-              return res.status(500).json({ error: "Registration failed." });
-            issueJwtAndRespond(res, insertData.insertId, email);
-          }
-        );
-      } else {
-        issueJwtAndRespond(res, data[0].id, email);
-      }
-    });
-  } catch (error) {
-    console.error("Google verification failed:", error);
-    res.status(401).json({ error: "Token verification failed." });
-  }
-});
-
-// =============================================================
-// YOUR EXISTING STANDARD ROUTES
-// =============================================================
-
-// Endpoint: POST /api/auth/register
-router.post("/register", async (req, res) => {
-  const q = "SELECT * FROM users WHERE email = ?";
-  db.query(q, [req.body.email], async (err, data) => {
-    if (err) return res.status(500).json(err);
-    if (data.length) return res.status(409).json("User already exists!");
-
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(req.body.password, salt);
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-
-    const insertQuery =
-      "INSERT INTO users (`name`,`email`,`password`, `verification_token`, `is_verified`) VALUES (?)";
-    const values = [req.body.name, req.body.email, hash, verificationToken, 0];
-
-    db.query(insertQuery, [values], (err) => {
-      if (err) return res.status(500).json(err);
-
-      sendVerificationEmail(req.body.email, verificationToken);
-
-      return res
-        .status(200)
-        .json("User created. Check your email for verification link.");
-    });
-  });
-});
-
-// Endpoint: GET /api/auth/verify
-router.get("/verify", (req, res) => {
-  const { token } = req.query;
-
-  const q =
-    "UPDATE users SET is_verified = 1, verification_token = NULL WHERE verification_token = ?";
-  db.query(q, [token], (err, data) => {
-    if (err) return res.status(500).json(err);
-    if (data.affectedRows === 0)
-      return res.status(400).json("Invalid or expired verification token.");
-
-    res.redirect("http://localhost:5173/login?verification=success");
-  });
-});
-
-// Endpoint: POST /api/auth/login
-router.post("/login", (req, res) => {
-  const q = "SELECT * FROM users WHERE email = ?";
-  db.query(q, [req.body.email], (err, data) => {
-    if (err) return res.status(500).json(err);
-    if (data.length === 0) return res.status(404).json("User not found!");
-
-    const user = data[0];
-
-    if (user.is_verified !== 1) {
-      return res
-        .status(403)
-        .json("Account not verified. Please check your email.");
+    if (!user) {
+      const result = await db.query(
+        "INSERT INTO users (username, email) VALUES ($1, $2) RETURNING *",
+        [username, email],
+      );
+      user = result.rows[0];
     }
 
-    const isPasswordCorrect = bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
-    if (!isPasswordCorrect)
-      return res.status(400).json("Wrong username or password!");
-
-    issueJwtAndRespond(res, user.id, user.email, user.name);
-  });
+    // Use our helper to ensure the token is sent!
+    issueJwtAndRespond(res, user, "Google login successful ✅");
+  } catch (err) {
+    res.status(400).json({ message: "Invalid Google credential" });
+  }
 });
 
-router.get("/me", verifyToken, (req, res) => {
-  res.status(200).json({
-    user: {
-      id: req.user.id,
-      email: req.user.email,
-      name: req.user.name,
-    },
-  });
+router.get("/google/callback", async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send("No code provided");
+
+  const { tokens } = oauth2Client.getToken(code);
+  oauth2Client.setCredentials(tokens);
+
+  // Optional: fetch user info
+  const oauth2 = google.oauth2({ auth: oauth2Client, version: "v2" });
+  const { data } = await oauth2.userinfo.get();
+
+  // TODO: issue JWT for your app and respond
+  res.json({ message: "Google login successful", user: data });
 });
 
-// Endpoint: PUT /api/auth/update
-router.put("/update", verifyToken, (req, res) => {
-  const userId = req.user.id;
-  const { name, email, password } = req.body;
+// ----------------- Register -----------------
+router.post("/register", async (req, res) => {
+  const { username, email, password, bio, job, address, message } = req.body;
+  if (!username || !email || !password)
+    return res.status(400).json({ message: "Fill all required fields 😿" });
 
-  if (!name && !email && !password) {
-    return res.status(200).json("No changes provided.");
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    const insertQ = `
+      INSERT INTO users
+        (username,email,password,bio,job,address,message)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      RETURNING id, username, email, bio, job, address, message
+    `;
+    const result = await db.query(insertQ, [
+      username,
+      email,
+      hashed,
+      bio || "",
+      job || "",
+      address || "",
+      message || "",
+    ]);
+    res.status(201).json({
+      message: "User registered ✅",
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res
+      .status(500)
+      .json({ message: "Error registering user 😭", error: err.message });
   }
+});
 
-  let updateFields = [];
-  let updateValues = [];
+// ----------------- Login -----------------
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ message: "Fill all required fields 😿" });
 
-  if (name) {
-    updateFields.push("name = ?");
-    updateValues.push(name);
+  try {
+    const selectQ = "SELECT * FROM users WHERE email=$1";
+    const { rows } = await db.query(selectQ, [email]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ message: "User not found 😢" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Wrong password 😭" });
+
+    issueJwtAndRespond(res, user, "Login successful ✅");
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Login failed 😭", error: err.message });
   }
-  if (email) {
-    updateFields.push("email = ?");
-    updateValues.push(email);
+});
+
+// ----------------- Get current user -----------------
+router.get("/me", verifyToken, async (req, res) => {
+  try {
+    const selectQ = "SELECT * FROM users WHERE id=$1";
+    const { rows } = await db.query(selectQ, [req.user.id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ message: "User not found 😢" });
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        job: user.job,
+        address: user.address,
+        message: user.message,
+        profile_image: user.profile_image,
+        background_image: user.background_image,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ message: "Cannot fetch user 😭", error: err.message });
+  }
+});
+
+// ----------------- Update user -----------------
+router.put("/update", verifyToken, async (req, res) => {
+  const { username, bio, job, address, message, password } = req.body;
+  const id = req.user.id;
+
+  const fields = [];
+  const values = [];
+  let count = 1;
+
+  if (username) {
+    fields.push(`username=$${count}`);
+    values.push(username);
+    count++;
+  }
+  if (bio) {
+    fields.push(`bio=$${count}`);
+    values.push(bio);
+    count++;
+  }
+  if (job) {
+    fields.push(`job=$${count}`);
+    values.push(job);
+    count++;
+  }
+  if (address) {
+    fields.push(`address=$${count}`);
+    values.push(address);
+    count++;
+  }
+  if (message) {
+    fields.push(`message=$${count}`);
+    values.push(message);
+    count++;
   }
   if (password) {
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(password, salt);
-    updateFields.push("password = ?");
-    updateValues.push(hash);
+    const hashed = await bcrypt.hash(password, 10);
+    fields.push(`password=$${count}`);
+    values.push(hashed);
+    count++;
   }
 
-  const q = `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`;
-  updateValues.push(userId);
+  if (fields.length === 0)
+    return res.status(400).json({ message: "Nothing to update 😿" });
 
-  db.query(q, updateValues, (err, data) => {
-    if (err) {
-      console.error("Update error:", err);
-      return res.status(500).json("Failed to update user.");
-    }
-    if (data.affectedRows === 0) {
-      return res.status(404).json("User not found.");
-    }
-    return res.status(200).json("User updated successfully.");
-  });
+  values.push(id);
+  const query = `UPDATE users SET ${fields.join(", ")} WHERE id=$${count} RETURNING *`;
+
+  try {
+    const { rows } = await db.query(query, values);
+    res.json({ message: "User updated ✅", user: rows[0] });
+  } catch (err) {
+    console.error("Update error:", err);
+    res.status(500).json({ message: "Update failed 😭", error: err.message });
+  }
 });
 
-// Endpoint: POST /api/auth/logout
+// ----------------- Upload profile/background image -----------------
+router.put(
+  "/upload/profile",
+  verifyToken,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file)
+        return res.status(400).json({ message: "No file uploaded" });
+
+      const imageUrl = req.file.path;
+      const userId = req.user.id;
+
+      // Ensure the column name matches your PostgreSQL table exactly!
+      const updateQuery = `
+            UPDATE users 
+            SET profile_image = $1 
+            WHERE id = $2 
+            RETURNING id, username, email, profile_image, background_image, bio, job, address
+        `;
+
+      const { rows } = await db.query(updateQuery, [imageUrl, userId]);
+
+      if (rows.length === 0)
+        return res.status(404).json({ message: "User not found" });
+
+      res.status(200).json({
+        message: "Profile photo updated! 📸",
+        user: rows[0], // Return the updated user object
+      });
+    } catch (error) {
+      console.error("Profile Upload Error:", error);
+      res.status(500).json({ message: "Server error during profile upload" });
+    }
+  },
+);
+
+// ----------------- Logout -----------------
 router.post("/logout", (_req, res) => {
-  return res
-    .clearCookie("access_token", {
-      httpOnly: true,
-    })
-    .status(200)
-    .json("User has been logged out.");
+  return res.clearCookie("access_token").status(200).json("Logged out ✅");
 });
 
-// Endpoint: DELETE /api/auth/delete
-router.delete("/delete", verifyToken, (_req, res) => {
-  const userId = _req.user.id;
+// ----------------- Delete account -----------------
+router.delete("/delete", verifyToken, async (req, res) => {
+  const id = req.user.id;
+  try {
+    const delQ = "DELETE FROM users WHERE id=$1 RETURNING *";
+    const { rows } = await db.query(delQ, [id]);
+    if (!rows[0]) return res.status(404).json({ message: "User not found 😢" });
 
-  const q = "DELETE FROM users WHERE id = ?";
-
-  db.query(q, [userId], (err, data) => {
-    if (err) {
-      console.error("User deletion error:", err);
-      return res.status(500).json(err);
-    }
-    if (data.affectedRows === 0) {
-      return res.status(404).json("User account not found.");
-    }
-
-    return res
-      .clearCookie("access_token", {
-        httpOnly: true,
-      })
-      .status(200)
-      .json("User account deleted.");
-  });
+    res
+      .clearCookie("access_token")
+      .json({ message: "Account deleted ✅", user: rows[0] });
+  } catch (err) {
+    console.error("Delete error:", err);
+    res.status(500).json({ message: "Delete failed 😭", error: err.message });
+  }
 });
 
 export default router;

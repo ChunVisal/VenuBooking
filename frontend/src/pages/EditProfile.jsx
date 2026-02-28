@@ -1,191 +1,249 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext'; // Path adjusted for common setup
-import api from '../api/axiosConfig'; // Path adjusted for common setup
+import React, { useState, useContext, useEffect } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import api from "../api/axiosConfig";
+import { Camera, Save, Trash2, ArrowLeft, Loader2 } from "lucide-react";
 
 const EditProfile = () => {
-    // Destructure necessary values from context
-    const { currentUser, SetCurrentUser, loading, logout } = useContext(AuthContext);
-    const navigate = useNavigate();
-    
-    // State for form fields, initialized with currentUser data
-    const [formData, setFormData] = useState({
-        name: currentUser?.name || '',
-        email: currentUser?.email || '',
-    });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [updateMessage, setUpdateMessage] = useState('');
-    const [error, setError] = useState(null);
+  const { currentUser, setCurrentUser, loading, logout } =
+    useContext(AuthContext);
+  const navigate = useNavigate();
 
-    // --- State & Navigation Checks ---
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    bio: "",
+    job: "",
+    address: "",
+  });
 
-    if (loading) {
-        return <div className="text-center p-8 text-xl text-yellow-600">Loading profile data...</div>;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState({ type: "", msg: "" });
+
+  // Sync form with currentUser data
+  useEffect(() => {
+    if (currentUser) {
+      setFormData({
+        username: currentUser.username || "",
+        email: currentUser.email || "",
+        bio: currentUser.bio || "",
+        job: currentUser.job || "",
+        address: currentUser.address || "",
+      });
+    }
+  }, [currentUser]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setStatus({ type: "", msg: "" });
+  };
+
+  // --- NEW: Handle Image Uploads to Cloudinary ---
+  const handleImageUpload = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (Cybersecurity habit: Don't let users upload 50MB files!)
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus({ type: "error", msg: "File is too big! Max 5MB." });
+      return;
     }
 
-    if (!currentUser) {
-        // If not logged in, redirect to login page
-        return <Navigate to="/login" replace />;
+    const uploadData = new FormData();
+    uploadData.append("image", file);
+
+    try {
+      setIsSubmitting(true);
+      setStatus({ type: "loading", msg: `Uploading ${type} image...` });
+      const endpoint =
+        type === "profile" ? "/auth/upload/profile" : "/auth/upload/background";
+
+      const res = await api.put(endpoint, uploadData, {
+        headers: {
+          "Content-Type": "multipart/form-data", // Crucial for files!
+        },
+      });
+
+      if (res.data.user) {
+        setCurrentUser(res.data.user);
+        console.log("Context Updated with:", res.data.user.profile_image);
+      }
+
+      setCurrentUser(res.data.user); // Update context with new image URL
+      setStatus({ type: "success", msg: "Profile image updated! 📸" });
+    } catch (err) {
+      setStatus({ type: "error", msg: "Image upload failed." });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    // Effect to update local form state when currentUser loads or changes in context
-    useEffect(() => {
-        if (currentUser) {
-            setFormData({
-                name: currentUser.name || '',
-                email: currentUser.email || '',
-            });
-        }
-    }, [currentUser]);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await api.put("/auth/update", formData);
+      setCurrentUser(res.data.user);
+      setStatus({ type: "success", msg: "Profile updated successfully! ✅" });
+      setTimeout(() => navigate("/profile"), 1500);
+    } catch (err) {
+      setStatus({
+        type: "error",
+        msg: err.response?.data?.message || "Update failed.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-
-    // --- Form Handlers ---
-
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-        setUpdateMessage(''); // Clear message on input change
-        setError(null);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        setUpdateMessage('');
-        setError(null);
-
-        // Check if data actually changed
-        if (formData.name === currentUser.name && formData.email === currentUser.email) {
-            setError("No changes detected. Please modify a field to update.");
-            setIsSubmitting(false);
-            return;
-        }
-
-        try {
-            // Send PUT request to update the profile (to /api/auth/update)
-            const res = await api.put('/auth/update', formData);
-            
-            // Success: Re-fetch the updated user data to refresh AuthContext
-            const updatedUserResponse = await api.get('/auth/me');
-            SetCurrentUser(updatedUserResponse.data);
-
-            setUpdateMessage(res.data || 'Profile updated successfully!');
-        } catch (err) {
-            console.error("Profile update failed:", err);
-            // Handle errors, including the 409 error from the backend (email already taken)
-            const errorMsg = typeof err.response?.data === 'string'
-                ? err.response.data
-                : (err.response?.data?.error || "An unexpected error occurred during update.");
-                
-            setError(errorMsg);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
-    const handleDelete = async () => {
-        if (!window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone and will erase all your data.")) {
-            return;
-        }
-
-        try {
-            // Send DELETE request to delete the account (to /api/auth/delete)
-            const res = await api.delete('/auth/delete');
-            
-            // If successful, log out from the frontend and navigate
-            logout(); // Clears local state and cookies
-            alert(res.data || "Account deleted successfully. Sorry to see you go!");
-            navigate('/', { replace: true }); // Navigate to home or login page
-        } catch (err) {
-            console.error("Account deletion failed:", err);
-            const errorMsg = err.response?.data || "Failed to delete account due to a server error.";
-            alert("Deletion Failed: " + errorMsg);
-        }
-    };
-
-
-    // --- Render ---
+  if (loading)
     return (
-        <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 sm:p-8">
-            <div className="w-full max-w-lg bg-white shadow-2xl rounded-xl p-6 sm:p-10 transition duration-300">
-                <h1 className="text-3xl font-extrabold text-gray-800 mb-6 border-b pb-3 flex items-center justify-between">
-                    <span>Edit Profile</span>
-                    <span className="text-base text-yellow-600 font-semibold">ID: {currentUser.id}</span>
-                </h1>
-
-                {/* Status Messages */}
-                {updateMessage && (
-                    <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-md" role="alert">
-                        <p className="font-bold">Success</p>
-                        <p>{updateMessage}</p>
-                    </div>
-                )}
-                {error && (
-                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md" role="alert">
-                        <p className="font-bold">Error</p>
-                        <p>{typeof error === 'string' ? error : 'An unexpected error occurred.'}</p>
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                            Name (Currently: {currentUser.name})
-                        </label>
-                        <input
-                            type="text"
-                            name="name"
-                            id="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter new name"
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                            Email (Currently: {currentUser.email})
-                        </label>
-                        <input
-                            type="email"
-                            name="email"
-                            id="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter new email address"
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500"
-                        />
-                    </div>
-                    
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white transition duration-200 
-                            ${isSubmitting ? 'bg-yellow-400 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500'}`}
-                    >
-                        {isSubmitting ? 'Updating...' : 'Update Profile'}
-                    </button>
-                </form>
-
-                {/* Delete Account Section */}
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-red-600 mb-3">Danger Zone</h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Permanently delete your account and all associated data (wishlists, bookings, etc.). This action cannot be undone.
-                    </p>
-                    <button
-                        onClick={handleDelete}
-                        className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-200"
-                    >
-                        Delete My Account
-                    </button>
-                </div>
-            </div>
-        </div>
+      <div className="text-center p-20 text-white bg-gray-900 min-h-screen">
+        Loading...
+      </div>
     );
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-8">
+      <div className="max-w-2xl mx-auto bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/profile")}
+            className="text-gray-400 hover:text-white flex items-center"
+          >
+            <ArrowLeft className="w-5 h-5 mr-1" /> Back
+          </button>
+          <h1 className="text-xl font-bold">Edit Profile</h1>
+          <div className="w-10"></div>
+        </div>
+
+        <div className="p-6 space-y-8">
+          <div className="relative h-32 w-full bg-gray-700 rounded-xl overflow-hidden mb-12 border border-gray-600">
+            {currentUser.background_image ? (
+              <img
+                src={currentUser.background_image}
+                className="w-full h-full object-cover"
+                alt="Banner"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No Banner Set
+              </div>
+            )}
+            <label className="absolute bottom-2 right-2 bg-black/50 p-2 rounded-lg cursor-pointer hover:bg-orange-600 transition-colors border border-white/20">
+              <Camera className="w-4 h-4 text-white" />
+              <span className="text-xs ml-1 text-white">Change Banner</span>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => handleImageUpload(e, "background")}
+              />
+            </label>
+          </div>
+          {/* Image Section */}
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative group">
+              <img
+                src={`${currentUser.profile_image}?${Date.now()}`}
+                alt="Profile"
+                className="w-32 h-32 rounded-full object-cover border-4 border-orange-500"
+              />
+              <label className="absolute bottom-0 right-0 bg-orange-600 p-2 rounded-full cursor-pointer hover:bg-orange-700 transition-colors">
+                <Camera className="w-5 h-5 text-white" />
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e, "profile")}
+                />
+              </label>
+            </div>
+            <p className="text-sm text-gray-400">
+              Click icon to update profile picture
+            </p>
+          </div>
+
+          {/* Status Messages */}
+          {status.msg && (
+            <div
+              className={`p-4 rounded-lg text-center ${status.type === "success" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"}`}
+            >
+              {status.msg}
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <form
+            onSubmit={handleSubmit}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            <div className="md:col-span-2">
+              <label className="block text-sm text-gray-400 mb-2">
+                Username
+              </label>
+              <input
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">
+                Job Title
+              </label>
+              <input
+                name="job"
+                value={formData.job}
+                onChange={handleChange}
+                placeholder="e.g. Software Engineer"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">
+                Address
+              </label>
+              <input
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Phnom Penh, Cambodia"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm text-gray-400 mb-2">Bio</label>
+              <textarea
+                name="bio"
+                rows="3"
+                value={formData.bio}
+                onChange={handleChange}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none"
+              ></textarea>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="md:col-span-2 bg-orange-600 hover:bg-orange-700 py-3 rounded-lg font-bold flex items-center justify-center space-x-2 transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Save size={20} />
+              )}
+              <span>Save Changes</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default EditProfile;

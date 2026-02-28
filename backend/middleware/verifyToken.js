@@ -1,22 +1,19 @@
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
 export const verifyToken = (req, res, next) => {
-    // Get the token from the request cookies
-    const token = req.cookies.access_token;
+  const authHeader = req.headers.authorization;
 
-    // If no token is found, return an unauthorized error
-    if (!token) {
-        return res.status(401).json("You are not authenticated!");
-    }
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token" });
+  }
 
-    // Verify the token using the secret key
-    jwt.verify(token, "your-secret-key", (err, user) => {
-        if (err) return res.status(403).json("Token is not valid!");
+  const token = authHeader.split(" ")[1];
 
-        // If token is valid, proceed to the next middleware or route handler
-        req.user = user;
-
-        next();
-    })
-
-}
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};

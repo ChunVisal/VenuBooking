@@ -1,92 +1,116 @@
-// src/pages/Profile.jsx (Revised for design and navigation)
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { Link, Navigate } from 'react-router-dom';
-import { User, Mail, PlusCircle, ListTodo, LogOut } from 'lucide-react'; // Added icons
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { Link, Navigate } from "react-router-dom";
+import {
+  User,
+  Mail,
+  PlusCircle,
+  Settings,
+  LogOut,
+  MapPin,
+  Briefcase,
+} from "lucide-react";
 
 const Profile = () => {
-    const { currentUser, loading, logout } = useContext(AuthContext);
+  const { currentUser, loading, logout } = useContext(AuthContext);
 
-    if (loading) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-orange-500">Loading user profile...</div>;
-    }
-
-    // Safety check just in case, though ProtectedRoute should handle this
-    if (!currentUser) {
-        return <Navigate to="/login" replace />;
-    }
-
+  if (loading)
     return (
-        <div className="min-h-screen bg-gray-900 p-8">
-            <div className="max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
-                
-                {/* Header Section */}
-                <div className="p-8 bg-gray-700/50 flex items-center space-x-6">
-                    <div className="p-4 bg-orange-600 rounded-full shadow-lg">
-                        <User className="w-10 h-10 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-4xl font-extrabold text-white">Welcome, {currentUser.name}!</h2>
-                        <p className="text-gray-400 flex items-center mt-1">
-                            <Mail className="w-4 h-4 mr-2 text-orange-400" />
-                            {currentUser.email}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Body Section */}
-                <div className="p-8 space-y-8">
-                    
-                    {/* Event Management Links */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        {/* 1. Create Event Button */}
-                        <Link 
-                            to="/create-event" // Assuming you have a route for creating events
-                            className="flex flex-col items-center justify-center p-6 bg-orange-600 rounded-xl text-white hover:bg-orange-700 transition-all transform hover:scale-[1.02] shadow-xl"
-                        >
-                            <PlusCircle className="w-8 h-8 mb-2" />
-                            <span className="font-bold text-lg">Create New Event</span>
-                            <span className="text-sm text-orange-200">Start listing a new venue or event</span>
-                        </Link>
-
-                        {/* 2. Manage Events Button */}
-                        <Link 
-                            to="/my-events" // 🚨 New route to see all user's events
-                            className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-xl text-white hover:bg-gray-600 transition-all transform hover:scale-[1.02] shadow-xl border border-orange-500/50"
-                        >
-                            <ListTodo className="w-8 h-8 mb-2 text-orange-400" />
-                            <span className="font-bold text-lg">Manage My Listings</span>
-                            <span className="text-sm text-gray-400">Edit, update, or delete your events</span>
-                        </Link>
-                    </div>
-
-                    {/* Account Links */}
-                    <div className="pt-4 border-t border-gray-700">
-                        <h3 className="text-xl font-semibold text-white mb-4">Account Actions</h3>
-                        <div className="flex flex-wrap gap-4">
-                            
-                            {/* Edit Profile Button */}
-                            <Link 
-                                to="/edit-profile" 
-                                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors flex items-center"
-                            >
-                                <User className="w-4 h-4 mr-2" /> Edit Profile
-                            </Link>
-
-                            {/* Logout Button */}
-                            <button 
-                                onClick={logout}
-                                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
-                            >
-                                <LogOut className="w-4 h-4 mr-2" /> Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-orange-500">
+        Loading...
+      </div>
     );
-}
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Banner Section */}
+      <div className="h-48 bg-gradient-to-r from-orange-600 to-red-600 relative">
+        {currentUser.background_image && (
+          <img
+            src={currentUser.background_image}
+            className="w-full h-full object-cover opacity-50"
+            alt="Banner"
+          />
+        )}
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="relative -mt-20 flex flex-col items-center md:items-start md:flex-row md:space-x-8 pb-8">
+          {/* Avatar */}
+          <img
+            src={currentUser.profile_image || "https://via.placeholder.com/150"}
+            className="w-40 h-40 rounded-full border-4 border-gray-900 object-cover shadow-2xl bg-gray-800"
+          />
+
+          <div className="mt-6 md:mt-24 flex-grow text-center md:text-left">
+            <h1 className="text-4xl font-bold">{currentUser.username}</h1>
+            <p className="text-orange-400 font-medium">
+              {currentUser.job || "Event Planner"}
+            </p>
+          </div>
+
+          <div className="mt-6 md:mt-24">
+            <Link
+              to="/edit-profile"
+              className="flex items-center px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-all"
+            >
+              <Settings className="w-4 h-4 mr-2" /> Edit Settings
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-20">
+          {/* Left Side: Info */}
+          <div className="md:col-span-1 space-y-6">
+            <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+              <h3 className="font-bold text-lg mb-4">About Me</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                {currentUser.bio ||
+                  "No bio yet. Tell the world about your events!"}
+              </p>
+              <div className="mt-4 space-y-3 text-sm text-gray-300">
+                <div className="flex items-center">
+                  <MapPin className="w-4 h-4 mr-2 text-orange-500" />{" "}
+                  {currentUser.address || "Cambodia"}
+                </div>
+                <div className="flex items-center">
+                  <Mail className="w-4 h-4 mr-2 text-orange-500" />{" "}
+                  {currentUser.email}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Actions */}
+          <div className="md:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Link
+                to="/create-event"
+                className="p-6 bg-orange-600 rounded-2xl hover:bg-orange-700 transition-all group"
+              >
+                <PlusCircle className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
+                <h4 className="font-bold text-lg">New Event</h4>
+                <p className="text-orange-200 text-xs">
+                  Host a new venue listing
+                </p>
+              </Link>
+              <button
+                onClick={logout}
+                className="p-6 bg-gray-800 rounded-2xl hover:bg-red-900/20 border border-gray-700 transition-all text-left"
+              >
+                <LogOut className="w-8 h-8 mb-2 text-red-500" />
+                <h4 className="font-bold text-lg">Logout</h4>
+                <p className="text-gray-500 text-xs">
+                  End your current session
+                </p>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Profile;
