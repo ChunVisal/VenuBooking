@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 
-body, p, span, input::placeholder, button, a, li {
+body,input::placeholder, button, a, li {
   font-family: 'Roboto', sans-serif;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .custom-size-p {
@@ -22,12 +22,13 @@ body {
 }
 
 h1, h2, h3, h4{
-  font-family: 'Oswald', sans-serif;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
 }
 
 h6 {
   font-family: 'Roboto', sans-serif;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 13px;
   font: bold;
 }
@@ -42,3 +43,20 @@ h6 {
   background: #888888;  /* orange */
   border-radius: 9999px;
 } 
+
+
+/* Add to your index.css or global styles */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}

@@ -3,7 +3,7 @@ import express from "express";
 import db from "../config/db.js"; // PostgreSQL pool
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { upload } from "../config/cloudinary.js";
+import { upload } from "../config/cloudinary.js"; // Cloudinary upload middleware
 import { verifyToken } from "../middleware/verifyToken.js";
 import { google } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
@@ -21,7 +21,7 @@ const issueJwtAndRespond = (res, user, message = "Success 🍏") => {
       email: user.email,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" },
+    { expiresIn: "365d" },
   );
 
   res.cookie("access_token", token, {
@@ -115,10 +115,11 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const insertQ = `
       INSERT INTO users
-        (username,email,password,bio,job,address,message)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING id, username, email, bio, job, address, message
+        (username,email,password,bio,job,address,message, created_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7, NOW(), NOW())
+      RETURNING id, username, email, bio, job, address, message, created_at
     `;
+
     const result = await db.query(insertQ, [
       username,
       email,
@@ -181,6 +182,7 @@ router.get("/me", verifyToken, async (req, res) => {
         message: user.message,
         profile_image: user.profile_image,
         background_image: user.background_image,
+        created_at: user.created_at,
       },
     });
   } catch (err) {

@@ -1,105 +1,152 @@
-// src/pages/MyEvents.jsx
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../api/axiosConfig';
-import { Edit3, Trash2, Calendar, MapPin, DollarSign } from 'lucide-react'; 
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import api from "../api/axiosConfig";
+import {
+  Edit3,
+  Trash2,
+  Calendar,
+  MapPin,
+  DollarSign,
+  Users,
+  Tag,
+} from "lucide-react";
 
 const MyEvents = () => {
-    const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-    // Function to fetch the user's listings
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                // Use the secure backend route you provided
-                const res = await api.get('/events/user/events'); 
-                setEvents(res.data);
-                setLoading(false);
-            } catch (err) {
-                console.error("Failed to fetch user events:", err);
-                setError("Failed to load your events. Please try again.");
-                setLoading(false);
-            }
-        };
-        fetchEvents();
-    }, []);
-
-    // Function to handle event deletion
-    const handleDelete = async (eventId) => {
-        if (!window.confirm("Are you sure you want to delete this event? This action cannot be undone.")) return;
-
-        try {
-            await api.delete(`/events/${eventId}`);
-            // Optimistically update the UI by removing the deleted event
-            setEvents(events.filter(event => event.id !== eventId));
-        } catch (err) {
-            console.error("Deletion failed:", err);
-            alert("Failed to delete event. You might not have permission.");
-        }
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await api.get("/events/user/events");
+        setEvents(res.data);
+        console.log("events: ", res.data);
+        setLoading(false);
+      } catch (err) {
+        setError("Failed to load your events. Please try again.");
+        setLoading(false);
+      }
     };
+    fetchEvents();
+  }, []);
 
-    if (loading) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-orange-500">Loading your event listings...</div>;
+  const handleDelete = async (eventId) => {
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+    try {
+      await api.delete(`/events/${eventId}`);
+      setEvents(events.filter((event) => event.id !== eventId));
+    } catch (err) {
+      alert("Failed to delete event.");
     }
+  };
 
-    if (error) {
-        return <div className="min-h-screen bg-gray-900 text-center pt-20 text-red-400">{error}</div>;
-    }
-
+  if (loading)
     return (
-        <div className="min-h-screen bg-gray-900 p-8">
-            <div className="max-w-6xl mx-auto">
-                <h1 className="text-4xl font-bold text-white mb-8 border-b border-orange-500 pb-2">Your Event Listings ({events.length})</h1>
-                
-                {events.length === 0 ? (
-                    <div className="text-center p-10 bg-gray-800 rounded-xl text-gray-400">
-                        <p className="text-xl">You haven't listed any events yet.</p>
-                        <Link to="/create-event" className="mt-4 inline-block text-orange-400 hover:text-orange-300 font-medium">
-                            Click here to create your first event!
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        {events.map((event) => (
-                            <div key={event.id} className="bg-gray-800 p-6 rounded-xl shadow-lg flex justify-between items-center border border-gray-700 hover:border-orange-500/50 transition-all">
-                                
-                                {/* Event Details */}
-                                <div className="flex-grow">
-                                    <h2 className="text-2xl font-semibold text-white mb-1">{event.title}</h2>
-                                    <p className="text-gray-400 line-clamp-2">{event.description}</p>
-                                    <div className="mt-3 flex items-center space-x-4 text-sm text-gray-400">
-                                        <span className="flex items-center"><Calendar className="w-4 h-4 mr-1 text-orange-400" /> {new Date(event.date).toLocaleDateString()}</span>
-                                        <span className="flex items-center"><MapPin className="w-4 h-4 mr-1 text-orange-400" /> {event.venue}</span>
-                                        <span className="flex items-center font-bold text-green-400"><DollarSign className="w-4 h-4 mr-1 text-green-400" /> {event.price}</span>
-                                    </div>
-                                </div>
-                                
-                                {/* Actions */}
-                                <div className="flex space-x-3 ml-6 flex-shrink-0">
-                                    <Link 
-                                        to={`/edit-event/${event.id}`} // 🚨 New route for editing
-                                        className="p-3 rounded-full bg-orange-600 text-white hover:bg-orange-700 transition-colors"
-                                        title="Edit Event"
-                                    >
-                                        <Edit3 className="w-5 h-5" />
-                                    </Link>
-                                    <button 
-                                        onClick={() => handleDelete(event.id)}
-                                        className="p-3 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors"
-                                        title="Delete Event"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
     );
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+              Your Events {events.length}
+            </h1>
+            <p className="text-gray-600">Manage your hosted experiences</p>
+          </div>
+          <Link
+            to="/create-event"
+            style={{ fontSize: "13px" }}
+            className=" font-bold bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-md transition-all shadow-lg hover:shadow-orange-200"
+          >
+            + Create New
+          </Link>
+        </div>
+
+        {events.length === 0 ? (
+          <div className="text-center bg-white rounded-3xl p-20 shadow-sm border border-gray-100">
+            <p className="text-xl text-gray-400">
+              You haven't listed any events yet.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ">
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col"
+              >
+                {/* Image Section */}
+                <Link
+                  to={`/events/${event.id}`}
+                  className="relative h-50 overflow-hidden"
+                >
+                  <img
+                    src={event.image || event.imageUrl || event.imageFile}
+                    alt={event.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute top-4 left-4 bg-white/90 px-2 py-1 rounded-md text-xs font-semibold shadow-sm">
+                    {event.category || "No Category"}
+                  </div>
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-orange-600 shadow-sm">
+                    $ {event.price || "Free"}
+                  </div>
+                </Link>
+
+                {/* Content Section */}
+                <div className="flex-grow px-4 py-3 flex flex-col justify-between">
+                  <h2 className="text-xl font-bold text-gray-800 mb-2 line-clamp-1">
+                    {event.title}
+                  </h2>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm italic font-medium">
+                      <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                      {new Date(event.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </div>
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <MapPin className="w-4 h-4 mr-2 text-red-500" />
+                      <span className="line-clamp-1">{event.venue}</span>
+                    </div>
+                    <p className="text-gray-500 text-sm mb-4 line-clamp-2">
+                      {event.description}
+                    </p>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className=" bg-gray-50 flex justify-between gap-4">
+                    <Link
+                      to={`/edit-event/${event.id}`}
+                      className="flex-1 flex justify-center items-center gap-2 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium shadow-sm"
+                    >
+                      <Edit3 className="w-4 h-4" /> Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(event.id)}
+                      className="flex-1 flex justify-center items-center gap-2 py-2 bg-white border border-red-100 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium shadow-sm"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default MyEvents;

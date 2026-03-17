@@ -1,9 +1,13 @@
-// config/cloudinary.js
 import { v2 as cloudinary } from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
+import pkg from "multer-storage-cloudinary";
 import dotenv from "dotenv";
+
 dotenv.config();
+
+// FAIL-SAFE: Look for the constructor in all possible hiding spots
+const CloudinaryStorage =
+  pkg.CloudinaryStorage || pkg.default?.CloudinaryStorage || pkg;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -14,12 +18,24 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "VenuBooking_Profiles",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    transformation: [{ width: 500, height: 500, crop: "limit" }],
+    folder: "VenuBooking_Events",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    // Remove the public_id from here if you want it to be automatic,
+    // or use a simple string. Functions here can cause the 'invalid' error.
   },
+  // If you want a custom name, use this property instead:
+  public_id: (req, file) => `event-${Date.now()}`,
 });
 
-const upload = multer({ storage: storage });
+// INTERNAL PATCH: Fixes the "Cannot read properties of undefined (reading 'uploader')"
+// The library expects this.cloudinary.v2 to exist
+if (storage.cloudinary && !storage.cloudinary.v2) {
+  storage.cloudinary.v2 = cloudinary;
+}
 
-export {cloudinary, upload};
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+export { cloudinary, upload };

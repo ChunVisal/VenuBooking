@@ -3,6 +3,7 @@ import db from "../config/db.js"; // your pg Pool
 import { verifyToken } from "../middleware/verifyToken.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
+import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -112,61 +113,76 @@ router.get("/user/events", verifyToken, async (req, res) => {
 // -------------------------
 // Create new event
 // -------------------------
-router.post("/", verifyToken, async (req, res) => {
-  const {
-    title,
-    description,
-    date,
-    venue,
-    price,
-    category,
-    image,
-    availableSeats,
-    tags,
-    eventType,
-    location,
-    rating,
-  } = req.body;
+router.post("/", verifyToken, (req, res) => {
+  // Use upload manually to catch the exact error
+  upload.single("image")(req, res, async (err) => {
+    if (err) {
+      console.error("CLOUDINARY ERROR:", err);
+      return res
+        .status(500)
+        .json({ error: "Cloudinary upload failed: " + err.message });
+    }
 
-  try {
-    const q = `
-      INSERT INTO events 
-      (title, description, date, venue, price, category, image, available_seats, tags, event_type, location, rating, user_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-      RETURNING *
-    `;
-
-    const values = [
+    // If no file was uploaded, req.file will be undefined
+    const imageUrl = req.file ? req.file.path || req.file.secure_url : null;
+    console.log("FINAL CHECK - Saving this string to DB:", imageUrl);
+    const {
       title,
       description,
       date,
       venue,
-      price || 0,
-      category || null,
-      image || null,
-      availableSeats || null,
-      JSON.stringify(tags || []),
-      eventType || "offline",
-      location || null,
-      rating || null,
-      req.user.id,
-    ];
+      price,
+      category,
+      availableSeats,
+      tags,
+      eventType,
+      location,
+      highlights,
+    } = req.body;
 
-    const data = await db.query(q, values);
-    return res
-      .status(201)
-      .json({ message: "Event created ✅", event: data.rows[0] });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to create event" });
-  }
+    try {
+      const q = `
+    INSERT INTO events 
+    (title, description, highlights, date, venue, price, category, image, available_seats, tags, event_type, location, user_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING *
+  `;
+
+      const values = [
+        title || null,
+        description || null,
+        // FIX: If date is empty string, send null so Postgres doesn't crash
+        date === "" ? null : date,
+        venue || null,
+        parseFloat(price) || 0,
+        category || null,
+        imageUrl,
+        highlights,
+        availableSeats === "" ? null : parseInt(availableSeats),
+        tags, // Already stringified from frontend
+        eventType || "offline",
+        location || null,
+        req.user.id,
+      ];
+
+      const data = await db.query(q, values);
+      res
+        .status(201)
+        .json({ message: "Event created ✅", event: data.rows[0] });
+    } catch (err) {
+      console.error("DATABASE ERROR:", err.message);
+      res.status(500).json({ error: "Database error: " + err.message });
+    }
+  });
 });
 
 // -------------------------
 // Update event
 // -------------------------
-router.put("/:id", verifyToken, async (req, res) => {
+router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
   const { id } = req.params;
+
+  // MATCH THESE NAMES TO YOUR FRONTEND STATE
   const {
     title,
     description,
@@ -174,50 +190,64 @@ router.put("/:id", verifyToken, async (req, res) => {
     venue,
     price,
     category,
-    image,
-    availableSeats,
+    available_seats, // matches frontend
     tags,
-    eventType,
+    event_type, // matches frontend
     location,
     rating,
+    highlights,
   } = req.body;
 
   try {
+    // 1. Check if we have a new image from Cloudinary, otherwise keep old one
+    let imageUrl = req.body.image; // default to existing image string
+    if (req.file) {
+      imageUrl = req.file.path || req.file.secure_url;
+    }
+
     const q = `
       UPDATE events SET 
         title=$1, description=$2, date=$3, venue=$4, price=$5, category=$6, 
-        image=$7, available_seats=$8, tags=$9, event_type=$10, location=$11, rating=$12,
+        image=$7, available_seats=$8, tags=$9, event_type=$10, location=$11, rating=$12, highlights=$13
         updated_at=NOW()
-      WHERE id=$13 AND user_id=$14
+      WHERE id=$14 AND user_id=$15
       RETURNING *
     `;
+
     const values = [
-      title,
-      description,
-      date,
-      venue,
-      price || 0,
+      title || null,
+      description || null,
+      date === "" ? null : date,
+      venue || null,
+      parseFloat(price) || 0,
       category || null,
-      image || null,
-      availableSeats || null,
-      JSON.stringify(tags || []),
-      eventType || "offline",
+      imageUrl || null,
+      available_seats === "" ? null : parseInt(available_seats),
+      tags
+        ? typeof tags === "string"
+          ? tags
+          : JSON.stringify(tags)
+        : JSON.stringify([]),
+      event_type || "offline",
       location || null,
       rating || null,
+      highlights || null,
       id,
       req.user.id,
     ];
 
     const data = await db.query(q, values);
-    if (data.rows.length === 0)
+
+    if (data.rows.length === 0) {
       return res.status(403).json({ error: "Event not found or unauthorized" });
+    }
 
     return res
       .status(200)
       .json({ message: "Event updated ✅", event: data.rows[0] });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to update event" });
+    console.error("UPDATE ERROR:", err.message);
+    return res.status(500).json({ error: "Database error: " + err.message });
   }
 });
 
