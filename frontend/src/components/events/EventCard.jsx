@@ -53,17 +53,18 @@ const EventCard = ({ event }) => {
   };
 
   return (
-    <div className="relative w-full bg-white rounded-sm overflow-hidden shadow-md hover:shadow-xl transition-all duration-300">
+    <div className="relative w-full h-full bg-white rounded-sm overflow-hidden shadow-md hover:shadow-xl transition-all duration-300">
       <Link to={`/event/${event.id}`} className="block">
         {/* Image Section */}
         <div className="relative h-56 overflow-hidden">
           <img
             src={
-              event.image ||
-              `https://source.unsplash.com/800x600/?event,${event.category}`
+              event.image?.startsWith("[")
+                ? JSON.parse(event.image)[0]
+                : event.image
             }
             alt={event.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
 
           {/* Price Tag */}
@@ -82,50 +83,60 @@ const EventCard = ({ event }) => {
                   : "bg-white/90 text-gray-700 hover:bg-white"
               } ${!currentUser && "cursor-not-allowed"}`}
             >
-              <Heart className={`h-3.5 w-3.5 ${isWished ? "fill-current" : ""}`} />
+              <Heart
+                className={`h-3.5 w-3.5 ${isWished ? "fill-current" : ""}`}
+              />
             </button>
             <CardMenu eventId={event.id} />
           </div>
         </div>
 
         {/* Content Section */}
-        <div className="p-5 pb-3 pt-3">
-          {/* Title */}
-          <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1 hover:text-orange-600 transition-colors">
-            {event.title}
-          </h3>
+        {/* Content Section - Add h-full to make the container stretch */}
+        <div className="flex flex-col h-full p-5 pb-3 pt-2">
+          {/* info section - Added flex-grow here */}
+          <div className="flex-grow">
+            {/* Title */}
+            <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1 hover:text-orange-600 transition-colors">
+              {event.title}
+            </h3>
 
-          {/* Venue/Location */}
-          <div className="flex items-center text-gray-700 mb-1">
-            <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm line-clamp-1">{event.venue}</span>
+            {/* Venue/Location */}
+            <div className="flex items-center text-gray-700 mb-1">
+              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="text-sm line-clamp-1">
+                {event.venue || "TBA"}
+              </span>
+            </div>
+
+            {/* Date and Time */}
+            <div className="flex items-center text-gray-700 mb-1">
+              <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="text-sm">{formatDate(event.date)}</span>
+            </div>
+
+            <div className="flex items-center text-gray-700 mb-1">
+              <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="text-sm">{formatTime(event.date)}</span>
+            </div>
+
+            {/* description - Added line-clamp-2 to keep height consistent */}
+            <div className="mb-4">
+              <p className="text-gray-700 text-sm line-clamp-2">
+                {event.description || "No description available."}
+              </p>
+            </div>
           </div>
 
-          {/* Date and Time */}
-          <div className="flex items-center text-gray-700 mb-1">
-            <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm">{formatDate(event.date)}</span>
-          </div>
-
-          <div className="flex items-center text-gray-700 mb-1">
-            <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm">{formatTime(event.date)}</span>
-          </div>
-            
-          {/* description */}
-          <div className="mb-4">
-              <span className="text-gray-700 text-sm">{event.description}</span>
-          </div>
-
-          {/* Bottom Row: Category (Left) and View Details (Right) */}
-          <div className="flex items-center justify-between">
+          {/* Bottom Row - Now always stays at the bottom because of flex-grow above */}
+          <div className="flex items-center justify-between mt-auto">
             <div className="flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
               <Tag className="h-3 w-3 mr-1" />
               {event.category || "Event"}
             </div>
 
             <button className="flex items-center text-orange-700 hover:text-orange-600 font-semibold text-sm transition-colors">
-              <span>Details</span>
+              <span>Book now</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </button>
           </div>

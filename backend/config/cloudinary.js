@@ -20,15 +20,10 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "VenuBooking_Events",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
-    // Remove the public_id from here if you want it to be automatic,
-    // or use a simple string. Functions here can cause the 'invalid' error.
   },
-  // If you want a custom name, use this property instead:
   public_id: (req, file) => `event-${Date.now()}`,
 });
 
-// INTERNAL PATCH: Fixes the "Cannot read properties of undefined (reading 'uploader')"
-// The library expects this.cloudinary.v2 to exist
 if (storage.cloudinary && !storage.cloudinary.v2) {
   storage.cloudinary.v2 = cloudinary;
 }

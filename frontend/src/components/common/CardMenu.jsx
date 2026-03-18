@@ -86,13 +86,13 @@ const CardMenu = ({ eventId }) => {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-          <div className="py-2">
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-sm shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+          <div className="py-1">
             {menuItems.map((item, index) => (
               <button
                 key={index}
                 onClick={(e) => handleMenuAction(item.action, e)}
-                className={`w-full flex items-center px-4 py-3 text-sm transition-colors hover:bg-gray-50 ${
+                className={`w-full flex items-center px-4 py-2 text-sm transition-colors hover:bg-gray-50 ${
                   item.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700"
                 }`}
               >

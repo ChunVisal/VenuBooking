@@ -115,17 +115,17 @@ router.get("/user/events", verifyToken, async (req, res) => {
 // -------------------------
 router.post("/", verifyToken, (req, res) => {
   // Use upload manually to catch the exact error
-  upload.single("image")(req, res, async (err) => {
+  upload.array("images", 10)(req, res, async (err) => {
     if (err) {
       console.error("CLOUDINARY ERROR:", err);
-      return res
-        .status(500)
-        .json({ error: "Cloudinary upload failed: " + err.message });
+      return res.status(500).json({ error: "Upload failed: " + err.message });
     }
 
-    // If no file was uploaded, req.file will be undefined
-    const imageUrl = req.file ? req.file.path || req.file.secure_url : null;
-    console.log("FINAL CHECK - Saving this string to DB:", imageUrl);
+    // 1. Correctly define the variable (singular to match your usage)
+    const imageUrl = req.files
+      ? req.files.map((file) => file.path || file.secure_url)
+      : [];
+
     const {
       title,
       description,
@@ -142,24 +142,25 @@ router.post("/", verifyToken, (req, res) => {
 
     try {
       const q = `
-    INSERT INTO events 
-    (title, description, highlights, date, venue, price, category, image, available_seats, tags, event_type, location, user_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    RETURNING *
-  `;
+            INSERT INTO events 
+            (title, description, highlights, date, venue, price, category, image, available_seats, tags, event_type, location, user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING *
+        `;
 
       const values = [
         title || null,
         description || null,
-        // FIX: If date is empty string, send null so Postgres doesn't crash
+        // 2. These are already strings from the frontend JSON.stringify
+        highlights || "[]",
         date === "" ? null : date,
         venue || null,
         parseFloat(price) || 0,
         category || null,
-        imageUrl,
-        highlights,
+        // 3. Use the variable we defined above
+        JSON.stringify(imageUrl),
         availableSeats === "" ? null : parseInt(availableSeats),
-        tags, // Already stringified from frontend
+        tags || "[]",
         eventType || "offline",
         location || null,
         req.user.id,
@@ -177,12 +178,12 @@ router.post("/", verifyToken, (req, res) => {
 });
 
 // -------------------------
-// Update event
+// Update events
 // -------------------------
-router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
+// Changed to .array("images") to match your frontend and Create route
+router.put("/:id", verifyToken, upload.array("image", 10), async (req, res) => {
   const { id } = req.params;
 
-  // MATCH THESE NAMES TO YOUR FRONTEND STATE
   const {
     title,
     description,
@@ -190,64 +191,80 @@ router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
     venue,
     price,
     category,
-    available_seats, // matches frontend
+    availableSeats,
     tags,
-    event_type, // matches frontend
+    eventType,
     location,
-    rating,
     highlights,
   } = req.body;
 
   try {
-    // 1. Check if we have a new image from Cloudinary, otherwise keep old one
-    let imageUrl = req.body.image; // default to existing image string
-    if (req.file) {
-      imageUrl = req.file.path || req.file.secure_url;
+    // 1. Handle Images logic
+    let finalImages;
+    if (req.files && req.files.length > 0) {
+      // If new files uploaded, map them to paths
+      finalImages = JSON.stringify(
+        req.files.map((file) => file.path || file.secure_url),
+      );
+    } else {
+      // If no new files, keep the existing images from the body
+      // We check if it's already a string, otherwise stringify it
+      finalImages =
+        typeof req.body.images === "string"
+          ? req.body.images
+          : JSON.stringify(req.body.images || []);
     }
 
+    // 2. FIXED SQL: Added missing comma after $12 and fixed placeholders
     const q = `
       UPDATE events SET 
-        title=$1, description=$2, date=$3, venue=$4, price=$5, category=$6, 
-        image=$7, available_seats=$8, tags=$9, event_type=$10, location=$11, rating=$12, highlights=$13
-        updated_at=NOW()
-      WHERE id=$14 AND user_id=$15
+        title=$1, 
+        description=$2, 
+        date=$3, 
+        venue=$4, 
+        price=$5, 
+        category=$6, 
+        image=$7, 
+        available_seats=$8, 
+        tags=$9, 
+        event_type=$10, 
+        location=$11, 
+        highlights=$12,
+        updated_at=NOW() 
+      WHERE id=$13 AND user_id=$14
       RETURNING *
     `;
 
+    // 3. Values array (Must be exactly 14 items)
     const values = [
-      title || null,
-      description || null,
-      date === "" ? null : date,
-      venue || null,
-      parseFloat(price) || 0,
-      category || null,
-      imageUrl || null,
-      available_seats === "" ? null : parseInt(available_seats),
-      tags
-        ? typeof tags === "string"
-          ? tags
-          : JSON.stringify(tags)
-        : JSON.stringify([]),
-      event_type || "offline",
-      location || null,
-      rating || null,
-      highlights || null,
-      id,
-      req.user.id,
+      title || null, // $1
+      description || null, // $2
+      date === "" ? null : date, // $3
+      venue || null, // $4
+      parseFloat(price) || 0, // $5
+      category || null, // $6
+      finalImages, // $7
+      availableSeats === "" ? null : parseInt(availableSeats), // $8
+      typeof tags === "string" ? tags : JSON.stringify(tags || []), // $9
+      eventType || "offline", // $10
+      location || null, // $11
+      typeof highlights === "string"
+        ? highlights
+        : JSON.stringify(highlights || []), // $12
+      id, // $13
+      req.user.id, // $14
     ];
 
     const data = await db.query(q, values);
 
     if (data.rows.length === 0) {
-      return res.status(403).json({ error: "Event not found or unauthorized" });
+      return res.status(403).json({ error: "Unauthorized or Event not found" });
     }
 
-    return res
-      .status(200)
-      .json({ message: "Event updated ✅", event: data.rows[0] });
+    res.status(200).json({ message: "Event updated ✅", event: data.rows[0] });
   } catch (err) {
     console.error("UPDATE ERROR:", err.message);
-    return res.status(500).json({ error: "Database error: " + err.message });
+    res.status(500).json({ error: "Database error: " + err.message });
   }
 });
 

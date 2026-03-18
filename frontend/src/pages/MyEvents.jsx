@@ -87,9 +87,14 @@ const MyEvents = () => {
                   className="relative h-50 overflow-hidden"
                 >
                   <img
-                    src={event.image || event.imageUrl || event.imageFile}
+                    src={
+                      event.image?.startsWith("[")
+                        ? JSON.parse(event.image)[0]
+                        : event.image ||
+                          `https://source.unsplash.com/800x600/?event,${event.category}`
+                    }
                     alt={event.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="w-full h-full object-cover"
                   />
                   <div className="absolute top-4 left-4 bg-white/90 px-2 py-1 rounded-md text-xs font-semibold shadow-sm">
                     {event.category || "No Category"}
