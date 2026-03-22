@@ -1,44 +1,69 @@
-import { useState, useContext } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useContext } from "react";
+import { Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
-import api from "../../api/axiosConfig";
+import { WishlistContext } from "../../context/WishlistContext";
 import CardMenu from "../common/CardMenu";
+import toast from "react-hot-toast";
 import {
   Calendar,
   MapPin,
   Clock,
   Heart,
+  Trash,
   Tag,
   ChevronRight,
+  Image,
 } from "lucide-react";
 
 const EventCard = ({ event }) => {
   const { currentUser } = useContext(AuthContext);
-  const navigate = useNavigate();
-  const [isWished, setIsWished] = useState(false);
+  const { wishlistItems, addToWishlist, removeFromWishlist } =
+    useContext(WishlistContext);
 
-  const handleAddToWishlist = async (e) => {
+  // Check if this specific event is in the global wishlist array
+  const wishlistItem = wishlistItems.find((item) => item.id === event.id);
+  const isWished = !!wishlistItem;
+
+  const handleToggleWishlist = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!currentUser) {
-      alert("Please log in to add to your wishlist.");
-      navigate("/login");
+      toast.error("Please login to save events!");
       return;
     }
 
     try {
-      const res = await api.post(`/wishlist/${event.id}`);
-      alert(res.data);
-      setIsWished(true);
+      if (isWished) {
+        await removeFromWishlist(wishlistItem.wishlist_id);
+        toast.success("Removed from wishlist", {
+          icon: <Trash className="text-red-600" size={20} />,
+          style: {
+            borderRadius: "5px",
+            background: "#F0F0F0",
+            color: "#3B3B3B",
+          },
+        });
+      } else {
+        await addToWishlist(event.id);
+        toast.success("Added to wishlist!", {
+          icon: <Heart className="text-red-500 fill-red-500" size={20} />,
+          style: { borderRadius: "5px", background: "#008000 ", color: "#fff" },
+        });
+      }
     } catch (err) {
-      const msg = err.response?.data || "Failed to add to wishlist.";
-      alert(msg);
+      // Handle the 409 Conflict error silently or with a specific message
+      if (err.response?.status === 409) {
+        toast.error("Already in your list!");
+      } else {
+        toast.error("Something went wrong...");
+      }
     }
   };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "short",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -54,18 +79,20 @@ const EventCard = ({ event }) => {
 
   return (
     <div className="relative w-full h-full bg-white rounded-sm overflow-hidden shadow-md hover:shadow-xl transition-all duration-300">
-      <Link to={`/event/${event.id}`} className="block">
+      <div className="block">
         {/* Image Section */}
         <div className="relative h-56 overflow-hidden">
-          <img
-            src={
-              event.image?.startsWith("[")
-                ? JSON.parse(event.image)[0]
-                : event.image
-            }
-            alt={event.title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          />
+          <Link to={`/event/${event.id}`}>
+            <img
+              src={
+                event.image?.startsWith("[")
+                  ? JSON.parse(event.image)[0]
+                  : event.image
+              }
+              alt={event.title}
+              className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+            />
+          </Link>
 
           {/* Price Tag */}
           <div className="absolute top-3 left-3 bg-gray-800/80 text-white text-sm font-bold px-3 py-1.5 rounded-sm shadow-lg">
@@ -73,22 +100,39 @@ const EventCard = ({ event }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="absolute top-3 right-3 flex items-center space-x-2">
+          <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
             <button
-              onClick={handleAddToWishlist}
-              disabled={!currentUser || isWished}
-              className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-300 transform hover:scale-110 ${
+              onClick={handleToggleWishlist}
+              className={` p-2.5 rounded-full backdrop-blur-md transition-all ${
                 isWished
-                  ? "bg-red-500 text-white"
-                  : "bg-white/90 text-gray-700 hover:bg-white"
-              } ${!currentUser && "cursor-not-allowed"}`}
+                  ? "bg-red-500 text-white scale-110 shadow-lg shadow-red-500/50"
+                  : "bg-white/90 text-gray-700 hover:scale-110 hover:bg-white"
+              }`}
             >
               <Heart
-                className={`h-3.5 w-3.5 ${isWished ? "fill-current" : ""}`}
+                className={`h-3.5 w-3.5 transition-transform duration-300 ${
+                  isWished ? "fill-current scale-110" : ""
+                }`}
               />
             </button>
             <CardMenu eventId={event.id} />
           </div>
+
+          {/* image count length */}
+          {(() => {
+            if (event.image?.startsWith("[")) {
+              const imagesArray = JSON.parse(event.image);
+              if (imagesArray.length >= 2) {
+                return (
+                  <div className="absolute bottom-3 right-3 bg-black/60 text-white text-sm px-2 py-1 rounded flex gap-1 items-center">
+                    <Image size={15} />
+                    {imagesArray.length} Images
+                  </div>
+                );
+              }
+            }
+            return null;
+          })()}
         </div>
 
         {/* Content Section */}
@@ -104,9 +148,9 @@ const EventCard = ({ event }) => {
             {/* Venue/Location */}
             <div className="flex items-center text-gray-700 mb-1">
               <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span className="text-sm line-clamp-1">
-                {event.venue || "TBA"}
-              </span>
+              {event.location && (
+                <p className="text-gray-600 text-sm">{event.location}</p>
+              )}
             </div>
 
             {/* Date and Time */}
@@ -135,13 +179,16 @@ const EventCard = ({ event }) => {
               {event.category || "Event"}
             </div>
 
-            <button className="flex items-center text-orange-700 hover:text-orange-600 font-semibold text-sm transition-colors">
+            <Link
+              to={`/event/${event.id}`}
+              className="flex items-center text-orange-700 hover:text-orange-600 font-semibold text-sm transition-colors"
+            >
               <span>Book now</span>
               <ChevronRight className="h-4 w-4 ml-1" />
-            </button>
+            </Link>
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 };

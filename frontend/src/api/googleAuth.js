@@ -1,13 +1,12 @@
-// src/api/googleAuth.js
 import { useEffect, useContext } from "react";
 import api from "./axiosConfig";
 import { AuthContext } from "../context/AuthContext";
+import { initializeGoogle, renderGoogleButton } from "../utils/googleInit";
 
 const useGoogleSignIn = (navigate, divId = "googleSignInDiv") => {
   const { setCurrentUser } = useContext(AuthContext);
 
   useEffect(() => {
-    /* global google */
     const handleCredentialResponse = async (response) => {
       try {
         const res = await api.post("/auth/google-login", {
@@ -18,26 +17,14 @@ const useGoogleSignIn = (navigate, divId = "googleSignInDiv") => {
         navigate("/profile");
       } catch (err) {
         console.error("Google Login Failed:", err);
-        alert("Google sign-in failed. Try again.");
       }
     };
 
-    if (window.google) {
-      google.accounts.id.initialize({
-        client_id:
-          "1659854909-ot1fb6idch1rraokqd2enregomv71j7h.apps.googleusercontent.com",
-        callback: handleCredentialResponse,
-      });
-      const rootDiv = document.getElementById(divId);
-      if (rootDiv) {
-        google.accounts.id.renderButton(rootDiv, {
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          width: "380",
-        });
-      }
-    }
+    // Initialize once with the callback
+    initializeGoogle(handleCredentialResponse);
+
+    // Render the button on this specific page's div
+    renderGoogleButton(divId);
   }, [navigate, setCurrentUser, divId]);
 };
 

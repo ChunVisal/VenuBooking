@@ -11,6 +11,7 @@ export default function EventList() {
   useEffect(() => {
     const fetchAllEvents = async () => {
       try {
+        setLoading(true);
         const res = await api.get("/events");
         setEvent(res.data);
       } catch (err) {
@@ -70,13 +71,13 @@ export default function EventList() {
             Upcoming Events
           </h1>
           <div className="flex items-center  gap-2">
-              <p className="text-gray-600 text-sm">
-                Discover amazing events happening near you
-              </p>
-              <div className="inline-flex items-center bg-gray-200 shadow-sm text-orange-800 px-4 py-2 rounded-full">
-                <span className="font-semibold mr-2">{events.length}</span>
-                <span>events available</span>
-              </div>
+            <p className="text-gray-600 text-sm">
+              Discover amazing events happening near you
+            </p>
+            <div className="inline-flex items-center bg-gray-200 shadow-sm text-orange-800 px-4 py-2 rounded-full">
+              <span className="font-semibold mr-2">{events.length}</span>
+              <span>events available</span>
+            </div>
           </div>
         </div>
 

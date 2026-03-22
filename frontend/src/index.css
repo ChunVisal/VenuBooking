@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@import 'leaflet/dist/leaflet.css';
 
 body,input::placeholder, button, a, li {
   font-family: 'Roboto', sans-serif;
@@ -59,4 +59,19 @@ h6 {
 
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Fix Leaflet map flickering */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #f8f9fa;
+}
+
+.leaflet-container:focus {
+  outline: none;
+}
+
+.leaflet-control-attribution {
+  font-size: 8px;
 }

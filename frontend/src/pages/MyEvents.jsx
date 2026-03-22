@@ -8,6 +8,7 @@ import {
   MapPin,
   DollarSign,
   Users,
+  Image,
   Tag,
 } from "lucide-react";
 
@@ -83,7 +84,7 @@ const MyEvents = () => {
               >
                 {/* Image Section */}
                 <Link
-                  to={`/events/${event.id}`}
+                  to={`/event/${event.id}`}
                   className="relative h-50 overflow-hidden"
                 >
                   <img
@@ -102,6 +103,22 @@ const MyEvents = () => {
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-orange-600 shadow-sm">
                     $ {event.price || "Free"}
                   </div>
+
+                  {/* image count length */}
+                  {(() => {
+                    if (event.image?.startsWith("[")) {
+                      const imagesArray = JSON.parse(event.image);
+                      if (imagesArray.length >= 2) {
+                        return (
+                          <div className="absolute bottom-3 right-3 bg-black/60 text-white text-sm px-2 py-1 rounded flex gap-1 items-center">
+                            <Image size={15} />
+                            {imagesArray.length} Images
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </Link>
 
                 {/* Content Section */}
@@ -111,7 +128,7 @@ const MyEvents = () => {
                   </h2>
                   <div className="space-y-1">
                     <div className="flex items-center text-gray-600 text-sm italic font-medium">
-                      <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                      <Calendar className="w-4 h-4 mr-2 text-orange-500" />
                       {new Date(event.date).toLocaleDateString("en-US", {
                         weekday: "short",
                         day: "numeric",
@@ -121,8 +138,12 @@ const MyEvents = () => {
                       })}
                     </div>
                     <div className="flex items-center text-gray-600 text-sm">
-                      <MapPin className="w-4 h-4 mr-2 text-red-500" />
-                      <span className="line-clamp-1">{event.venue}</span>
+                      <MapPin className="w-4 h-4 mr-2 text-orange-500" />
+                      {event.location && (
+                        <p className="text-gray-600 text-sm">
+                          {event.location}
+                        </p>
+                      )}
                     </div>
                     <p className="text-gray-500 text-sm mb-4 line-clamp-2">
                       {event.description}

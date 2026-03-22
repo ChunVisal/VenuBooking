@@ -15,7 +15,7 @@ const googleClient = new OAuth2Client(CLIENT_ID);
 
 const issueJwtAndRespond = (res, id, email, name) => {
   const token = jwt.sign({ id, email, name }, process.env.JWT_SECRET, {
-    expiresIn: "1h",
+    expiresIn: "365d",
   });
 
   return res.status(200).json({
@@ -62,6 +62,58 @@ router.post("/google", async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(401).json({ error: "Invalid or expired Google token" });
+  }
+});
+
+// Get single event with organizer info
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      SELECT e.*, 
+             u.id as organizer_id,
+             u.username as organizer_username,
+             u.email as organizer_email,
+             u.profile_image as organizer_profile_image,
+             u.created_at as organizer_joined
+      FROM events e
+      LEFT JOIN users u ON e.user_id = u.id
+      WHERE e.id = $1
+    `;
+
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const event = result.rows[0];
+
+    // Format response
+    const formattedEvent = {
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      highlights: event.highlights,
+      date: event.date,
+      venue: event.venue,
+      price: event.price,
+      category: event.category,
+      image: event.image,
+      location: event.location,
+      organizer: {
+        username: event.organizer_username,
+        email: event.organizer_email,
+        created_at: event.organizer_joined,
+        profile_image: event.organizer_profile_image,
+      },
+    };
+
+    res.json(formattedEvent);
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ message: "Error fetching event" });
   }
 });
 
@@ -115,7 +167,10 @@ router.get("/user/events", verifyToken, async (req, res) => {
 // -------------------------
 router.post("/", verifyToken, (req, res) => {
   // Use upload manually to catch the exact error
-  upload.array("images", 10)(req, res, async (err) => {
+  upload.fields([
+    { name: "image", maxCount: 10 },
+    { name: "images", maxCount: 10 },
+  ])(req, res, async (err) => {
     if (err) {
       console.error("CLOUDINARY ERROR:", err);
       return res.status(500).json({ error: "Upload failed: " + err.message });
@@ -181,42 +236,112 @@ router.post("/", verifyToken, (req, res) => {
 // Update events
 // -------------------------
 // Changed to .array("images") to match your frontend and Create route
-router.put("/:id", verifyToken, upload.array("image", 10), async (req, res) => {
-  const { id } = req.params;
+router.put(
+  "/:id",
+  verifyToken,
+  upload.fields([
+    { name: "image", maxCount: 10 },
+    { name: "images", maxCount: 10 },
+  ]),
+  async (req, res) => {
+    const { id } = req.params;
 
-  const {
-    title,
-    description,
-    date,
-    venue,
-    price,
-    category,
-    availableSeats,
-    tags,
-    eventType,
-    location,
-    highlights,
-  } = req.body;
+    const {
+      title,
+      description,
+      date,
+      venue,
+      price,
+      category,
+      availableSeats,
+      tags,
+      eventType,
+      location,
+      highlights,
+      existing_images,
+    } = req.body;
 
-  try {
-    // 1. Handle Images logic
-    let finalImages;
-    if (req.files && req.files.length > 0) {
-      // If new files uploaded, map them to paths
-      finalImages = JSON.stringify(
-        req.files.map((file) => file.path || file.secure_url),
-      );
-    } else {
-      // If no new files, keep the existing images from the body
-      // We check if it's already a string, otherwise stringify it
-      finalImages =
-        typeof req.body.images === "string"
-          ? req.body.images
-          : JSON.stringify(req.body.images || []);
-    }
+    try {
+      // 1. Handle Images logic
+      let finalImages = [];
 
-    // 2. FIXED SQL: Added missing comma after $12 and fixed placeholders
-    const q = `
+      // Get existing images from request body
+      if (existing_images) {
+        try {
+          const existing = JSON.parse(existing_images);
+          finalImages = Array.isArray(existing) ? existing : [existing];
+        } catch (e) {
+          finalImages = [];
+        }
+      }
+
+      // Add new uploaded images
+      const newImages = [];
+      if (req.files) {
+        // Check both possible field names
+        const imageFiles = req.files.image || req.files.images || [];
+        if (imageFiles.length > 0) {
+          imageFiles.forEach((file) => {
+            newImages.push(file.path || file.secure_url);
+          });
+        }
+      }
+
+      // Combine existing and new images
+      const allImages = [...finalImages, ...newImages];
+      const imageJson = JSON.stringify(allImages);
+
+      // 2. FIX: Handle price and seats properly - prevent NaN
+      let priceValue = null;
+      if (
+        price !== undefined &&
+        price !== null &&
+        price !== "" &&
+        price !== "NaN"
+      ) {
+        const parsed = parseFloat(price);
+        if (!isNaN(parsed)) {
+          priceValue = parsed;
+        }
+      }
+
+      let seatsValue = null;
+      if (
+        availableSeats !== undefined &&
+        availableSeats !== null &&
+        availableSeats !== "" &&
+        availableSeats !== "NaN"
+      ) {
+        const parsed = parseInt(availableSeats);
+        if (!isNaN(parsed)) {
+          seatsValue = parsed;
+        }
+      }
+
+      // 3. Parse tags and highlights
+      let tagsJson = "[]";
+      if (tags) {
+        try {
+          tagsJson = typeof tags === "string" ? tags : JSON.stringify(tags);
+        } catch (e) {
+          tagsJson = "[]";
+        }
+      }
+
+      let highlightsJson = "[]";
+      if (highlights) {
+        try {
+          highlightsJson =
+            typeof highlights === "string"
+              ? highlights
+              : JSON.stringify(highlights);
+        } catch (e) {
+          highlightsJson = "[]";
+        }
+      }
+
+      // 4. FIXED SQL
+      const q = `
       UPDATE events SET 
         title=$1, 
         description=$2, 
@@ -235,39 +360,44 @@ router.put("/:id", verifyToken, upload.array("image", 10), async (req, res) => {
       RETURNING *
     `;
 
-    // 3. Values array (Must be exactly 14 items)
-    const values = [
-      title || null, // $1
-      description || null, // $2
-      date === "" ? null : date, // $3
-      venue || null, // $4
-      parseFloat(price) || 0, // $5
-      category || null, // $6
-      finalImages, // $7
-      availableSeats === "" ? null : parseInt(availableSeats), // $8
-      typeof tags === "string" ? tags : JSON.stringify(tags || []), // $9
-      eventType || "offline", // $10
-      location || null, // $11
-      typeof highlights === "string"
-        ? highlights
-        : JSON.stringify(highlights || []), // $12
-      id, // $13
-      req.user.id, // $14
-    ];
+      // 5. Values array
+      const values = [
+        title || null,
+        description || null,
+        date === "" ? null : date,
+        venue || null,
+        priceValue, // Now safe - no NaN
+        category || null,
+        imageJson,
+        seatsValue, // Now safe - no NaN
+        tagsJson,
+        eventType || "offline",
+        location || null,
+        highlightsJson,
+        id,
+        req.user.id,
+      ];
 
-    const data = await db.query(q, values);
+      console.log("Update values:", values); // Debug log
 
-    if (data.rows.length === 0) {
-      return res.status(403).json({ error: "Unauthorized or Event not found" });
+      const data = await db.query(q, values);
+
+      if (data.rows.length === 0) {
+        return res
+          .status(403)
+          .json({ error: "Unauthorized or Event not found" });
+      }
+
+      res
+        .status(200)
+        .json({ message: "Event updated ✅", event: data.rows[0] });
+    } catch (err) {
+      console.error("UPDATE ERROR:", err.message);
+      console.error("Full error:", err);
+      res.status(500).json({ error: "Database error: " + err.message });
     }
-
-    res.status(200).json({ message: "Event updated ✅", event: data.rows[0] });
-  } catch (err) {
-    console.error("UPDATE ERROR:", err.message);
-    res.status(500).json({ error: "Database error: " + err.message });
-  }
-});
-
+  },
+);
 // -------------------------
 // Delete event
 // -------------------------

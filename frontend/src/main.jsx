@@ -1,16 +1,19 @@
-import { StrictMode } from 'react'
-import { BrowserRouter } from 'react-router-dom'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
-import { AuthProvider } from './context/AuthContext';
+import { StrictMode } from "react";
+import { BrowserRouter } from "react-router-dom";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.jsx";
+import { AuthProvider } from "./context/AuthContext";
+import { WishlistProvider } from "./context/WishlistContext";
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <WishlistProvider>
+          <App />
+        </WishlistProvider>
       </AuthProvider>
     </BrowserRouter>
-  </StrictMode>
-)
+  </StrictMode>,
+);
