@@ -1,81 +1,360 @@
-import express from "express"
-import { verifyToken } from "../middleware/verifyToken.js"
-import db from "../config/db.js"
+import { Router, raw } from "express";
+const router = Router();
+import pool from "../config/db.js";
+import { verifyToken } from "../middleware/verifyToken.js";
+import crypto from "crypto";
+const { randomBytes } = crypto;
+import Stripe from "stripe";
 
-const router = express.Router();
+console.log("Stripe Secret Key exists:", !!process.env.STRIPE_SECRET_KEY);
+console.log(
+  "Stripe Secret Key starts with sk_:",
+  process.env.STRIPE_SECRET_KEY?.startsWith("sk_"),
+);
+console.log(
+  "Stripe Secret Key first 10 chars:",
+  process.env.STRIPE_SECRET_KEY?.substring(0, 10),
+);
 
-// 1. POST Create a New Booking (Buy a Ticket)
-router.post("/", verifyToken, (_req, res) => {
-    // We ONLY need the event_id and the quantity from the body
-    const { event_id, quantity } = _req.body; 
-
-    // --- STEP 1: Fetch the current price from the events table ---
-    const fetchPriceQuery = "SELECT price FROM events WHERE id = ?";
-    
-    db.query(fetchPriceQuery, [event_id], (err, eventData) => {
-        if (err || eventData.length === 0) {
-            return res.status(404).json("Event not found or database error.");
-        }
-        
-        // --- STEP 2: Calculate Total Price on the Backend ---
-        const pricePerTicket = parseFloat(eventData[0].price);
-        const calculatedTotalPrice = pricePerTicket * quantity; 
-        
-        // --- STEP 3: Insert the FINAL booking record ---
-        const insertQuery = "INSERT INTO bookings (`user_id`, `event_id`, `quantity`, `total_price`) VALUES (?, ?, ?, ?)";
-        const values = [_req.user.id, event_id, quantity, calculatedTotalPrice];
-        
-        db.query(insertQuery, values, (err, data) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json(err);
-            }
-            return res.status(201).json({ 
-                message: "Booking confirmed! Total charged: $" + calculatedTotalPrice.toFixed(2), 
-                booking_id: data.insertId 
-            });
-        });
+// Test Stripe connection
+router.get("/test-stripe", async (req, res) => {
+  try {
+    // Just try to create a tiny payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 100, // $1.00
+      currency: "usd",
     });
+    res.json({ 
+      success: true, 
+      message: "Stripe is working!",
+      clientSecret: paymentIntent.client_secret 
+    });
+  } catch (err) {
+    console.error("Stripe test error:", err);
+    res.status(500).json({ 
+      error: err.message,
+      type: err.type,
+      key_prefix: process.env.STRIPE_SECRET_KEY?.substring(0, 7)
+    });
+  }
 });
 
-// 2. GET Booking History (View Your Tickets)
-router.get("/listing", verifyToken, (_req, res) => {
-    // Joins event details with the user's booking history
-    const q = `
-        SELECT b.*, e.title, e.date, e.venue
-        FROM bookings b
-        JOIN events e ON b.event_id = e.id
-        WHERE b.user_id = ?
-        ORDER BY b.booking_date DESC
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const generateBookingCode = () => {
+  return "BK" + randomBytes(4).toString("hex").toUpperCase();
+};
+
+const generateTicketCode = () => {
+  return "TCK" + randomBytes(4).toString("hex").toUpperCase();
+};
+
+// Check availability
+router.get("/check-availability/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const eventQuery = `SELECT id, title, available_seats, price, date FROM events WHERE id = $1`;
+    const eventResult = await pool.query(eventQuery, [eventId]);
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const event = eventResult.rows[0];
+    const bookedQuery = `
+      SELECT COALESCE(SUM(ticket_count), 0) as total_booked
+      FROM bookings 
+      WHERE event_id = $1 AND status != 'cancelled'
     `;
+    const bookedResult = await pool.query(bookedQuery, [eventId]);
+    const totalBooked = parseInt(bookedResult.rows[0].total_booked);
+    const availableSeats =
+      event.available_seats === null ? null : parseInt(event.available_seats);
+    const remainingSeats = availableSeats ? availableSeats - totalBooked : null;
 
-    db.query(q, [_req.user.id], (err, data) => {
-        if (err) return res.status(500).json(err);
-        return res.status(200).json(data);
+    res.json({
+      event_id: event.id,
+      title: event.title,
+      total_capacity: availableSeats,
+      booked_tickets: totalBooked,
+      remaining_seats: remainingSeats,
+      is_available: availableSeats === null ? true : remainingSeats > 0,
+      price: parseFloat(event.price),
     });
+  } catch (err) {
+    console.error("Availability check error:", err);
+    res.status(500).json({ error: "Failed to check availability" });
+  }
 });
 
-// 3. DELETE Cancel a Booking (Protected)
-router.delete("/:id", verifyToken, (_req, res) => {
-    const bookingId = _req.params.id;
+// Create booking for free events
+router.post("/create-free", verifyToken, async (req, res) => {
+  const { event_id, ticket_count } = req.body;
+  const user_id = req.user.id;
 
-    // CRITICAL: The user can ONLY delete a booking if the ID matches AND the user_id matches
-    const q = "DELETE FROM bookings WHERE id = ? AND user_id = ?";
-    
-    db.query(q, [bookingId, _req.user.id], (err, data) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json(err);
-        }
+  try {
+    // Check if already booked
+    const existingBooking = await pool.query(
+      "SELECT id FROM bookings WHERE event_id = $1 AND user_id = $2 AND status != 'cancelled'",
+      [event_id, user_id],
+    );
 
-        // Check if a row was actually deleted (affectedRows > 0)
-        if (data.affectedRows === 0) {
-            // This means the booking ID was wrong OR the user tried to delete someone else's booking.
-            return res.status(403).json("Booking not found or you are not authorized to cancel it.");
-        }
+    if (existingBooking.rows.length > 0) {
+      return res.status(409).json({
+        error: "You have already booked this event",
+      });
+    }
 
-        return res.status(200).json("Booking has been successfully cancelled.");
+    // Get event details
+    const eventResult = await pool.query("SELECT * FROM events WHERE id = $1", [
+      event_id,
+    ]);
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const event = eventResult.rows[0];
+
+    // Generate booking code
+    const bookingCode = "BK" + randomBytes(4).toString("hex").toUpperCase();
+
+    // Create booking
+    const bookingResult = await pool.query(
+      `
+      INSERT INTO bookings (booking_code, event_id, user_id, ticket_count, total_price, payment_status)
+      VALUES ($1, $2, $3, $4, $5, 'free')
+      RETURNING *
+    `,
+      [bookingCode, event_id, user_id, ticket_count, 0],
+    );
+
+    const booking = bookingResult.rows[0];
+
+    // Create tickets
+    for (let i = 0; i < ticket_count; i++) {
+      const ticketCode = "TCK" + randomBytes(4).toString("hex").toUpperCase();
+      await pool.query(
+        `
+        INSERT INTO tickets (ticket_code, booking_id, event_id, user_id, ticket_type)
+        VALUES ($1, $2, $3, $4, $5)
+      `,
+        [ticketCode, booking.id, event_id, user_id, "regular"],
+      );
+    }
+
+    res.json({
+      success: true,
+      booking: {
+        ...booking,
+        event_title: event.title,
+        event_date: event.date,
+      },
     });
+  } catch (err) {
+    console.error("Free booking error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create booking after successful payment
+router.post("/create", verifyToken, async (req, res) => {
+  const {
+    event_id,
+    ticket_count,
+    payment_intent_id,
+    ticket_type = "regular",
+  } = req.body;
+  const user_id = req.user.id;
+
+  console.log("Creating booking after payment:", {
+    event_id,
+    ticket_count,
+    payment_intent_id,
+  });
+
+  try {
+    // Verify payment intent
+    const paymentIntent =
+      await stripe.paymentIntents.retrieve(payment_intent_id);
+
+    if (paymentIntent.status !== "succeeded") {
+      return res.status(400).json({ error: "Payment not completed" });
+    }
+
+    // Check if already booked
+    const existingBooking = await pool.query(
+      "SELECT id FROM bookings WHERE event_id = $1 AND user_id = $2 AND status != 'cancelled'",
+      [event_id, user_id],
+    );
+
+    if (existingBooking.rows.length > 0) {
+      return res
+        .status(409)
+        .json({ error: "You have already booked this event" });
+    }
+
+    // Get event details
+    const eventResult = await pool.query("SELECT * FROM events WHERE id = $1", [
+      event_id,
+    ]);
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const event = eventResult.rows[0];
+    let unitPrice = parseFloat(event.price);
+    if (ticket_type === "vip") unitPrice = unitPrice * 2;
+    if (ticket_type === "early_bird") unitPrice = unitPrice * 0.8;
+
+    const totalPrice = unitPrice * ticket_count;
+
+    // Generate booking code
+    const bookingCode = "BK" + randomBytes(4).toString("hex").toUpperCase();
+
+    // Create booking
+    const bookingResult = await pool.query(
+      `
+      INSERT INTO bookings (booking_code, event_id, user_id, ticket_count, total_price, payment_status, payment_method,  purchase_date)
+      VALUES ($1, $2, $3, $4, $5, 'paid', 'stripe', NOW())
+      RETURNING *
+    `,
+      [bookingCode, event_id, user_id, ticket_count, totalPrice],
+    );
+
+    const booking = bookingResult.rows[0];
+
+    // Create tickets
+    for (let i = 0; i < ticket_count; i++) {
+      const ticketCode = "TCK" + randomBytes(4).toString("hex").toUpperCase();
+      await pool.query(
+        `
+        INSERT INTO tickets (ticket_code, booking_id, event_id, user_id, ticket_type)
+        VALUES ($1, $2, $3, $4, $5)
+      `,
+        [ticketCode, booking.id, event_id, user_id, ticket_type],
+      );
+    }
+
+    res.json({
+      success: true,
+      booking: {
+        ...booking,
+        event_title: event.title,
+        event_date: event.date,
+      },
+    });
+  } catch (err) {
+    console.error("Paid booking error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create Stripe Payment Intent
+router.post("/create-payment-intent", verifyToken, async (req, res) => {
+  const { event_id, ticket_count, ticket_type = "regular" } = req.body;
+
+  try {
+    // Get event details
+    const eventResult = await pool.query("SELECT * FROM events WHERE id = $1", [
+      event_id,
+    ]);
+
+    if (eventResult.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const event = eventResult.rows[0];
+    let unitPrice = parseFloat(event.price);
+
+    // Apply ticket type pricing (if needed)
+    if (ticket_type === "vip") unitPrice = unitPrice * 2;
+    if (ticket_type === "early_bird") unitPrice = unitPrice * 0.8;
+
+    const totalAmount = Math.round(unitPrice * ticket_count * 100); // Convert to cents
+
+    console.log("Total amount in cents:", totalAmount);
+
+    // Create Payment Intent with Stripe
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalAmount,
+      currency: "usd",
+      metadata: {
+        event_id: event_id,
+        user_id: req.user.id,
+        ticket_count: ticket_count,
+        ticket_type: ticket_type,
+      },
+    });
+
+    console.log("Payment intent created:", paymentIntent.id);
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      amount: totalAmount / 100,
+      currency: "usd",
+    });
+  } catch (err) {
+    console.error("Payment intent error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CONFIRM PAYMENT
+router.put("/confirm-payment/:bookingId", verifyToken, async (req, res) => {
+  const { bookingId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE bookings 
+       SET payment_status = 'paid', payment_method = 'stripe', updated_at = NOW()
+       WHERE id = $1 AND user_id = $2 RETURNING *`,
+      [bookingId, req.user.id],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    res.json({ success: true, booking: result.rows[0] });
+  } catch (err) {
+    console.error("Confirm payment error:", err);
+    res.status(500).json({ error: "Failed to confirm payment" });
+  }
+});
+
+// GET USER'S BOOKINGS
+router.get("/my-bookings", verifyToken, async (req, res) => {
+  try {
+    const bookings = await pool.query(
+      `SELECT b.*, e.title as event_title, e.date as event_date, e.venue as event_venue, e.image as event_image
+       FROM bookings b
+       JOIN events e ON b.event_id = e.id
+       WHERE b.user_id = $1
+       ORDER BY b.booking_date DESC`,
+      [req.user.id],
+    );
+
+    if (!bookings.rows || bookings.rows.length === 0) {
+      return res.json([]);
+    }
+
+    const bookingsWithTickets = await Promise.all(
+      bookings.rows.map(async (booking) => {
+        const tickets = await pool.query(
+          "SELECT * FROM tickets WHERE booking_id = $1",
+          [booking.id],
+        );
+        return { ...booking, tickets: tickets.rows || [] };
+      }),
+    );
+
+    res.json(bookingsWithTickets);
+  } catch (err) {
+    console.error("Get bookings error:", err);
+    res.status(500).json({ error: "Failed to get bookings" });
+  }
 });
 
 export default router;

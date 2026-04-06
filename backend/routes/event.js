@@ -1,5 +1,5 @@
 import express from "express";
-import db from "../config/db.js"; // your pg Pool
+import db from "../config/db.js";
 import { verifyToken } from "../middleware/verifyToken.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
@@ -43,7 +43,6 @@ router.post("/google", async (req, res) => {
     const userData = await db.query(q, [email]);
 
     if (userData.rows.length === 0) {
-      // Create new user
       const insertQ = `
         INSERT INTO users (name, email, is_verified) 
         VALUES ($1, $2, true) 
@@ -65,7 +64,60 @@ router.post("/google", async (req, res) => {
   }
 });
 
-// Get single event with organizer info
+// -------------------------
+// GET all events (public)
+// -------------------------
+router.get("/", async (_req, res) => {
+  try {
+    const data = await db.query("SELECT * FROM events ORDER BY date ASC");
+    return res.status(200).json(data.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
+
+// -------------------------
+// GET user's own events (logged in user) - SPECIFIC ROUTE FIRST
+// -------------------------
+router.get("/user/events", verifyToken, async (req, res) => {
+  try {
+    const data = await db.query(
+      "SELECT * FROM events WHERE user_id=$1 ORDER BY date ASC",
+      [req.user.id],
+    );
+    return res.status(200).json(data.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch user events" });
+  }
+});
+
+// -------------------------
+// GET events by user ID (public) - DYNAMIC ROUTE AFTER SPECIFIC
+// -------------------------
+router.get("/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const query = `
+      SELECT * FROM events 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC
+    `;
+
+    const result = await db.query(query, [userId]);
+
+    res.json({ events: result.rows });
+  } catch (err) {
+    console.error("Error fetching user events:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------
+// GET single event with organizer info
+// -------------------------
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -90,7 +142,6 @@ router.get("/:id", async (req, res) => {
 
     const event = result.rows[0];
 
-    // Format response
     const formattedEvent = {
       id: event.id,
       title: event.title,
@@ -102,11 +153,13 @@ router.get("/:id", async (req, res) => {
       category: event.category,
       image: event.image,
       location: event.location,
+      created_at: event.created_at,
       organizer: {
+        id: event.organizer_id,
         username: event.organizer_username,
         email: event.organizer_email,
-        created_at: event.organizer_joined,
         profile_image: event.organizer_profile_image,
+        created_at: event.organizer_joined,
       },
     };
 
@@ -118,55 +171,9 @@ router.get("/:id", async (req, res) => {
 });
 
 // -------------------------
-// Get all events (public)
-// -------------------------
-router.get("/", async (_req, res) => {
-  try {
-    const data = await db.query("SELECT * FROM events ORDER BY date ASC");
-    return res.status(200).json(data.rows);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to fetch events" });
-  }
-});
-
-// -------------------------
-// Get single event by ID (public)
-// -------------------------
-router.get("/:id", async (_req, res) => {
-  const eventId = _req.params.id;
-  try {
-    const data = await db.query("SELECT * FROM events WHERE id=$1", [eventId]);
-    if (data.rows.length === 0)
-      return res.status(404).json({ error: "Event not found" });
-    return res.status(200).json(data.rows[0]);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to fetch event" });
-  }
-});
-
-// -------------------------
-// Get events for logged-in user
-// -------------------------
-router.get("/user/events", verifyToken, async (req, res) => {
-  try {
-    const data = await db.query(
-      "SELECT * FROM events WHERE user_id=$1 ORDER BY date ASC",
-      [req.user.id],
-    );
-    return res.status(200).json(data.rows);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to fetch user events" });
-  }
-});
-
-// -------------------------
-// Create new event
+// CREATE new event
 // -------------------------
 router.post("/", verifyToken, (req, res) => {
-  // Use upload manually to catch the exact error
   upload.fields([
     { name: "image", maxCount: 10 },
     { name: "images", maxCount: 10 },
@@ -176,10 +183,20 @@ router.post("/", verifyToken, (req, res) => {
       return res.status(500).json({ error: "Upload failed: " + err.message });
     }
 
-    // 1. Correctly define the variable (singular to match your usage)
-    const imageUrl = req.files
-      ? req.files.map((file) => file.path || file.secure_url)
-      : [];
+    const imageUrls = [];
+
+    if (req.files) {
+      if (req.files.image && req.files.image.length > 0) {
+        req.files.image.forEach((file) => {
+          imageUrls.push(file.path || file.secure_url);
+        });
+      }
+      if (req.files.images && req.files.images.length > 0) {
+        req.files.images.forEach((file) => {
+          imageUrls.push(file.path || file.secure_url);
+        });
+      }
+    }
 
     const {
       title,
@@ -196,25 +213,41 @@ router.post("/", verifyToken, (req, res) => {
     } = req.body;
 
     try {
+      // Parse price safely
+      let priceValue = 0;
+      if (price && price !== "" && price !== "NaN") {
+        const parsed = parseFloat(price);
+        if (!isNaN(parsed)) {
+          priceValue = parsed;
+        }
+      }
+
+      // Parse availableSeats safely
+      let seatsValue = null;
+      if (availableSeats && availableSeats !== "" && availableSeats !== "NaN") {
+        const parsed = parseInt(availableSeats);
+        if (!isNaN(parsed)) {
+          seatsValue = parsed;
+        }
+      }
+
       const q = `
-            INSERT INTO events 
-            (title, description, highlights, date, venue, price, category, image, available_seats, tags, event_type, location, user_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            RETURNING *
-        `;
+        INSERT INTO events 
+        (title, description, highlights, date, venue, price, category, image, available_seats, tags, event_type, location, user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING *
+      `;
 
       const values = [
         title || null,
         description || null,
-        // 2. These are already strings from the frontend JSON.stringify
         highlights || "[]",
         date === "" ? null : date,
         venue || null,
-        parseFloat(price) || 0,
+        priceValue,
         category || null,
-        // 3. Use the variable we defined above
-        JSON.stringify(imageUrl),
-        availableSeats === "" ? null : parseInt(availableSeats),
+        JSON.stringify(imageUrls),
+        seatsValue,
         tags || "[]",
         eventType || "offline",
         location || null,
@@ -233,9 +266,8 @@ router.post("/", verifyToken, (req, res) => {
 });
 
 // -------------------------
-// Update events
+// UPDATE event
 // -------------------------
-// Changed to .array("images") to match your frontend and Create route
 router.put(
   "/:id",
   verifyToken,
@@ -262,10 +294,9 @@ router.put(
     } = req.body;
 
     try {
-      // 1. Handle Images logic
+      // Handle Images
       let finalImages = [];
 
-      // Get existing images from request body
       if (existing_images) {
         try {
           const existing = JSON.parse(existing_images);
@@ -275,23 +306,24 @@ router.put(
         }
       }
 
-      // Add new uploaded images
       const newImages = [];
       if (req.files) {
-        // Check both possible field names
-        const imageFiles = req.files.image || req.files.images || [];
-        if (imageFiles.length > 0) {
-          imageFiles.forEach((file) => {
+        if (req.files.image && req.files.image.length > 0) {
+          req.files.image.forEach((file) => {
+            newImages.push(file.path || file.secure_url);
+          });
+        }
+        if (req.files.images && req.files.images.length > 0) {
+          req.files.images.forEach((file) => {
             newImages.push(file.path || file.secure_url);
           });
         }
       }
 
-      // Combine existing and new images
       const allImages = [...finalImages, ...newImages];
       const imageJson = JSON.stringify(allImages);
 
-      // 2. FIX: Handle price and seats properly - prevent NaN
+      // Handle price safely
       let priceValue = null;
       if (
         price !== undefined &&
@@ -305,6 +337,7 @@ router.put(
         }
       }
 
+      // Handle seats safely
       let seatsValue = null;
       if (
         availableSeats !== undefined &&
@@ -318,7 +351,7 @@ router.put(
         }
       }
 
-      // 3. Parse tags and highlights
+      // Parse tags and highlights
       let tagsJson = "[]";
       if (tags) {
         try {
@@ -340,36 +373,34 @@ router.put(
         }
       }
 
-      // 4. FIXED SQL
       const q = `
-      UPDATE events SET 
-        title=$1, 
-        description=$2, 
-        date=$3, 
-        venue=$4, 
-        price=$5, 
-        category=$6, 
-        image=$7, 
-        available_seats=$8, 
-        tags=$9, 
-        event_type=$10, 
-        location=$11, 
-        highlights=$12,
-        updated_at=NOW() 
-      WHERE id=$13 AND user_id=$14
-      RETURNING *
-    `;
+        UPDATE events SET 
+          title=$1, 
+          description=$2, 
+          date=$3, 
+          venue=$4, 
+          price=$5, 
+          category=$6, 
+          image=$7, 
+          available_seats=$8, 
+          tags=$9, 
+          event_type=$10, 
+          location=$11, 
+          highlights=$12,
+          updated_at=NOW() 
+        WHERE id=$13 AND user_id=$14
+        RETURNING *
+      `;
 
-      // 5. Values array
       const values = [
         title || null,
         description || null,
         date === "" ? null : date,
         venue || null,
-        priceValue, // Now safe - no NaN
+        priceValue,
         category || null,
         imageJson,
-        seatsValue, // Now safe - no NaN
+        seatsValue,
         tagsJson,
         eventType || "offline",
         location || null,
@@ -377,8 +408,6 @@ router.put(
         id,
         req.user.id,
       ];
-
-      console.log("Update values:", values); // Debug log
 
       const data = await db.query(q, values);
 
@@ -393,13 +422,13 @@ router.put(
         .json({ message: "Event updated ✅", event: data.rows[0] });
     } catch (err) {
       console.error("UPDATE ERROR:", err.message);
-      console.error("Full error:", err);
       res.status(500).json({ error: "Database error: " + err.message });
     }
   },
 );
+
 // -------------------------
-// Delete event
+// DELETE event
 // -------------------------
 router.delete("/:id", verifyToken, async (req, res) => {
   const { id } = req.params;

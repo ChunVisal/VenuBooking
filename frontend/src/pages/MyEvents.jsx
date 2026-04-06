@@ -101,7 +101,10 @@ const MyEvents = () => {
                     {event.category || "No Category"}
                   </div>
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-orange-600 shadow-sm">
-                    $ {event.price || "Free"}
+                    ${" "}
+                    {event.price && parseFloat(event.price) > 0
+                      ? `$${parseFloat(event.price).toFixed(2)}`
+                      : "Free"}
                   </div>
 
                   {/* image count length */}

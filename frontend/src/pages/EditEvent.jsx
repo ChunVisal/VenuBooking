@@ -677,6 +677,7 @@ const EditEventPage = () => {
                 <input
                   type="number"
                   name="price"
+                  step="0.01"
                   placeholder="0.00 (Free)"
                   value={formData.price}
                   onChange={handleChange}

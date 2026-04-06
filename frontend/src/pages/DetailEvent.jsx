@@ -1,12 +1,14 @@
 // src/pages/DetailEvent.jsx
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   FaHeart,
   FaMapMarkerAlt,
   FaPlayCircle,
   FaStar,
+  FaCheckCircle,
   FaCalendarAlt,
+  FaChevronRight,
 } from "react-icons/fa";
 import { FiShare2 } from "react-icons/fi";
 import api from "../api/axiosConfig";
@@ -45,6 +47,9 @@ export default function EventDetails() {
   const [isLiked, setIsLiked] = useState(false);
   const [mapLocation, setMapLocation] = useState(null);
   const [geocoding, setGeocoding] = useState(false);
+
+  const [hasBooked, setHasBooked] = useState(false);
+  const [existingBooking, setExistingBooking] = useState(null);
 
   // Check if event is in wishlist
   useEffect(() => {
@@ -109,10 +114,6 @@ export default function EventDetails() {
           images[0] || "https://via.placeholder.com/500x300?text=No+Image",
         );
 
-        console.log("FULL EVENT DATA:", eventData);
-        console.log("ORGANIZER DATA:", eventData.organizer);
-        console.log("PROFILE IMAGE URL:", eventData.organizer?.profile_image);
-
         // Get location coordinates
         let coords = null;
 
@@ -173,6 +174,32 @@ export default function EventDetails() {
       toast.error("Something went wrong...");
     }
   };
+
+  // Check if user already booked this event
+  const checkUserBooking = async () => {
+    if (!currentUser) return;
+
+    try {
+      const response = await api.get("/bookings/my-bookings");
+      const booking = response.data.find((b) => b.event_id === parseInt(id));
+      if (booking) {
+        setHasBooked(true);
+        setExistingBooking(booking);
+      }
+    } catch (err) {
+      console.error("Error checking booking:", err);
+    }
+  };
+
+  // Call this in your useEffect after fetching event
+  useEffect(() => {
+    if (id) {
+      setEvent();
+      if (currentUser) {
+        checkUserBooking();
+      }
+    }
+  }, [id, currentUser]);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -271,7 +298,7 @@ export default function EventDetails() {
 
         {/* Organizer Info */}
         {organizer && (
-          <div className="flex items-center gap-3 bg-orange-500 text-white p-3 rounded-lg">
+          <div className="flex items-center gap-3 bg-orange-400 text-white p-3 rounded-lg">
             {organizer.profile_image ? (
               <img
                 src={
@@ -330,45 +357,22 @@ export default function EventDetails() {
           </div>
         </div>
 
-        {/* Location with Map */}
+        {/* Location with Map - Desktop */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <FaMapMarkerAlt className="w-4 h-4 text-gray-700" />
+            <FaMapMarkerAlt className="w-4 h-4" />
             <span className="font-medium">Location</span>
           </div>
-          <div className="text-sm">
-            {event.location && (
-              <p className="text-gray-600">{event.location}</p>
-            )}
-          </div>
 
-          {/* MAP BOARD */}
-          <div className="mt-2">
-            <div className="h-52 rounded-lg overflow-hidden border border-gray-200">
-              {geocoding ? (
-                <div className="h-full flex items-center justify-center bg-gray-100">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                </div>
-              ) : mapLocation && mapLocation.lat ? (
-                <MapContainer
-                  key={mapLocation.lat}
-                  center={[mapLocation.lat, mapLocation.lng]}
-                  zoom={15}
-                  style={{ height: "100%", width: "100%" }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution="&copy; OpenStreetMap"
-                  />
-                  <Marker position={[mapLocation.lat, mapLocation.lng]}>
-                    <Popup>
-                      <strong>{event.venue || event.title}</strong>
-                      <br />
-                      {displayAddress}
-                    </Popup>
-                  </Marker>
-                </MapContainer>
-              ) : displayAddress ? (
+          <p className="font-semibold">{event.venue || "TBA"}</p>
+          {event.location && (
+            <p className="text-gray-600 text-sm">{event.location}</p>
+          )}
+
+          {/* MAP BOARD - Always show map if location exists */}
+          {(event.location || event.venue) && (
+            <div className="mt-2">
+              <div className="h-52 rounded-lg overflow-hidden border border-gray-200">
                 <iframe
                   title="Location Map"
                   width="100%"
@@ -377,32 +381,53 @@ export default function EventDetails() {
                   scrolling="no"
                   marginHeight="0"
                   marginWidth="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(displayAddress)}&layer=mapnik&marker=1`}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=104.7%2C11.4%2C105.1%2C11.7&layer=mapnik&marker=11.55%2C104.9`}
                   style={{ border: 0 }}
                 />
-              ) : (
-                <div className="h-full flex items-center justify-center bg-gray-100">
-                  <p className="text-gray-500 text-sm">No location specified</p>
-                </div>
-              )}
-            </div>
-            {displayAddress && !mapLocation?.lat && (
+              </div>
               <a
-                href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(displayAddress)}`}
+                href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(event.location || event.venue)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-orange-500 mt-1 inline-block hover:underline"
               >
-                View full map →
+                View larger map →
               </a>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Booking Button */}
-        <button className="w-full bg-orange-500 text-white py-2 text-sm rounded-sm hover:bg-orange-600">
-          Book Now - ${event.price ? parseFloat(event.price).toFixed(2) : "0"}
-        </button>
+        {/* Booking Button - Conditional based on booking status */}
+        {!currentUser ? (
+          <Link
+            to="/login"
+            className="w-full bg-gray-500 text-white py-3 rounded-sm font-semibold block text-center"
+          >
+            Login to Book
+          </Link>
+        ) : hasBooked ? (
+          <div className="space-y-3">
+            <button
+              disabled
+              className="w-full bg-green-500 text-white py-3 rounded-sm font-semibold block text-center opacity-75 cursor-not-allowed"
+            >
+              ✓ Already Booked
+            </button>
+            <Link
+              to="/my-bookings"
+              className="w-full block text-center bg-orange-500 text-white py-3 rounded-sm font-semibold hover:bg-orange-600"
+            >
+              View My Tickets
+            </Link>
+          </div>
+        ) : (
+          <Link
+            to={`/book/${event.id}`}
+            className="w-full bg-orange-500 text-white py-3 rounded-sm hover:bg-orange-600 font-semibold block text-center"
+          >
+            Book Now - ${event.price ? parseFloat(event.price).toFixed(2) : "0"}
+          </Link>
+        )}
 
         {/* Highlights */}
         {highlights.length > 0 && (
@@ -461,41 +486,41 @@ export default function EventDetails() {
 
         {/* Right Column */}
         <div className="md:w-1/3 space-y-4">
-          {/* Organizer Info */}
-          {organizer && (
-            <div className="flex items-center gap-3 bg-orange-500 text-white p-4 rounded-lg">
-              {organizer.profile_image ? (
-                <img
-                  src={organizer.profile_image}
-                  alt={organizer.username}
-                  className="w-14 h-14 object-cover rounded-full border-2 border-white"
-                />
-              ) : (
-                <div className="w-14 h-14 bg-white/30 rounded-full flex items-center justify-center text-2xl font-bold">
-                  {organizer.username?.[0]?.toUpperCase() || "?"}
-                </div>
-              )}
-              <div>
-                <p className="font-semibold text-lg">
-                  Hosted by {organizer.username}
-                </p>
-                <p className="text-sm opacity-90">{organizer.email}</p>
-                <div className="flex items-center gap-1 mt-1 text-xs">
-                  <FaCalendarAlt className="w-3 h-3" />
-                  <p>Joined {formatCreatedDate(organizer.created_at)}</p>
+          <Link to={`/profile/${organizer.username}`}>
+            {/* Organizer Info */}
+            {organizer && (
+              <div className="flex items-center gap-3 bg-orange-400 text-white p-2 rounded-lg">
+                {organizer.profile_image ? (
+                  <img
+                    src={organizer.profile_image}
+                    alt={organizer.username}
+                    className="w-14 h-14 object-cover rounded-full border-2 border-white"
+                  />
+                ) : (
+                  <div className="w-14 h-14 bg-white/30 rounded-full flex items-center justify-center text-2xl font-bold">
+                    {organizer.username?.[0]?.toUpperCase() || "?"}
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold text-lg">
+                    Hosted by {organizer.username}
+                  </p>
+                  <p className="text-sm opacity-90">{organizer.email}</p>
+                  <div className="flex items-center gap-1 mt-1 text-xs">
+                    <FaCalendarAlt className="w-3 h-3" />
+                    <p>Joined {formatCreatedDate(organizer.created_at)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
+            )}
+          </Link>
           {/* Event Created Date */}
           {event.created_at && (
-            <div className="flex items-center gap-2 text-gray-500 text-sm border-b pb-2">
+            <div className="flex items-center gap-2 text-gray-500 text-sm border-b p-2">
               <FaCalendarAlt className="w-4 h-4" />
               <span>Event created: {formatCreatedDate(event.created_at)}</span>
             </div>
           )}
-
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold">{event.title}</h1>
@@ -515,7 +540,6 @@ export default function EventDetails() {
               </button>
             </div>
           </div>
-
           {/* Location with Map - Desktop */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -523,37 +547,15 @@ export default function EventDetails() {
               <span className="font-medium">Location</span>
             </div>
 
+            <p className="font-semibold">{event.venue || "TBA"}</p>
             {event.location && (
               <p className="text-gray-600 text-sm">{event.location}</p>
             )}
 
-            {/* MAP BOARD - Desktop */}
-            <div className="mt-2">
-              <div className="h-52 rounded-lg overflow-hidden border border-gray-200">
-                {geocoding ? (
-                  <div className="h-full flex items-center justify-center bg-gray-100">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                  </div>
-                ) : mapLocation && mapLocation.lat ? (
-                  <MapContainer
-                    key={mapLocation.lat}
-                    center={[mapLocation.lat, mapLocation.lng]}
-                    zoom={15}
-                    style={{ height: "100%", width: "100%" }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution="&copy; OpenStreetMap"
-                    />
-                    <Marker position={[mapLocation.lat, mapLocation.lng]}>
-                      <Popup>
-                        <strong>{event.venue || event.title}</strong>
-                        <br />
-                        {displayAddress}
-                      </Popup>
-                    </Marker>
-                  </MapContainer>
-                ) : displayAddress ? (
+            {/* MAP BOARD - Always show map if location exists */}
+            {(event.location || event.venue) && (
+              <div className="mt-2">
+                <div className="h-52 rounded-lg overflow-hidden border border-gray-200">
                   <iframe
                     title="Location Map"
                     width="100%"
@@ -562,24 +564,51 @@ export default function EventDetails() {
                     scrolling="no"
                     marginHeight="0"
                     marginWidth="0"
-                    src={`https://www.openstreetmap.org/export/embed.html?q=${encodeURIComponent(displayAddress)}&layer=mapnik&marker=1`}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=104.7%2C11.4%2C105.1%2C11.7&layer=mapnik&marker=11.55%2C104.9`}
                     style={{ border: 0 }}
                   />
-                ) : (
-                  <div className="h-full flex items-center justify-center bg-gray-100">
-                    <p className="text-gray-500 text-sm">
-                      No location specified
-                    </p>
-                  </div>
-                )}
+                </div>
+                <a
+                  href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(event.location || event.venue)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-orange-500 mt-1 inline-block hover:underline"
+                >
+                  View larger map →
+                </a>
               </div>
-            </div>
+            )}
           </div>
-
-          <button className="w-full bg-orange-500 text-white py-3 rounded-sm hover:bg-orange-600 font-semibold">
-            Book Now - ${event.price ? parseFloat(event.price).toFixed(2) : "0"}
-          </button>
-
+          {currentUser ? (
+            hasBooked ? (
+              <Link
+                to="/my-bookings"
+                className="flex items-center justify-center gap-2 rounded-md bg-green-400 shadow-md py-3 text-white font-semibold text-sm"
+              >
+                <FaCheckCircle className="w-4 h-4" color="white" />
+                <span>Booked ✓ for {event.price ? parseFloat(event.price).toFixed(2) : "0"} $</span> 
+              </Link>
+            ) : (
+              <Link
+                to={`/book/${event.id}`}
+                className="flex items-center justify-center bg-orange-500 py-3 rounded-md gap-2 text-white font-semibold text-sm transition-colors"
+              >
+                <span>
+                  {" "}
+                  Book Now - $
+                  {event.price ? parseFloat(event.price).toFixed(2) : "0"}
+                </span>
+                <FaChevronRight className="h-4 w-4 ml-1" />
+              </Link>
+            )
+          ) : (
+            <Link
+              to="/login"
+              className="flex items-center text-gray-500 font-semibold text-sm"
+            >
+              Login to Book
+            </Link>
+          )}
           {highlights.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-semibold text-lg">Highlights</h3>

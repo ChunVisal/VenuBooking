@@ -2,7 +2,6 @@
 import Hero from "./Hero"
 import Filter from "./Filter"
 import QuickFilter from "./QuickFilter"
-import Trending from "./Trending"
 import EventList from "./EventList"
 
 export default function Home() {
@@ -11,7 +10,6 @@ export default function Home() {
         <Hero />
         <Filter />
         <QuickFilter />
-        <Trending />
         <EventList />
     </div>
   )

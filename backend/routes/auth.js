@@ -193,6 +193,55 @@ router.get("/me", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------- Get Public User Profile -----------------
+router.get("/user/:username", async (req, res) => {
+    try {
+    const { username } = req.params;
+    
+    const selectQ = `
+      SELECT id, username, email, bio, job, address, message, 
+             profile_image, background_image, created_at
+      FROM users 
+      WHERE username = $1
+    `;
+    const { rows } = await db.query(selectQ, [username]);
+    const user = rows[0];
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found 😢" });
+    }
+
+    // Also get user's events
+    const eventsQ = `
+      SELECT id, title, description, date, venue, price, category, image, created_at
+      FROM events 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT 10
+    `;
+    const eventsResult = await db.query(eventsQ, [user.id]);
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        job: user.job,
+        address: user.address,
+        message: user.message,
+        profile_image: user.profile_image,
+        background_image: user.background_image,
+        created_at: user.created_at,
+      },
+      events: eventsResult.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Cannot fetch user profile 😭", error: err.message });
+  }
+});
+
 // ----------------- Update user -----------------
 router.put("/update", verifyToken, async (req, res) => {
   const { username, bio, job, address, message, password } = req.body;

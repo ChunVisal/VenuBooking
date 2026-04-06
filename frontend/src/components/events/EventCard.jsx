@@ -96,7 +96,9 @@ const EventCard = ({ event }) => {
 
           {/* Price Tag */}
           <div className="absolute top-3 left-3 bg-gray-800/80 text-white text-sm font-bold px-3 py-1.5 rounded-sm shadow-lg">
-            {event.price ? `$${parseFloat(event.price).toFixed(2)}` : "Free"}
+            {event.price && parseFloat(event.price) > 0
+              ? `$${parseFloat(event.price).toFixed(2)}`
+              : "Free"}
           </div>
 
           {/* Action Buttons */}
