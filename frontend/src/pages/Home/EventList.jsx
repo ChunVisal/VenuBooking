@@ -74,8 +74,8 @@ export default function EventList() {
             <p className="text-gray-600 text-sm">
               Discover amazing events happening near you
             </p>
-            <div className="inline-flex items-center bg-gray-200 shadow-sm text-orange-800 px-4 py-2 rounded-full">
-              <span className="font-semibold mr-2">{events.length}</span>
+            <div className="inline-flex items-center bg-gray-300/50 shadow-sm text-gray-800 px-4 py-1 rounded-lg">
+              <span className="font-semibold mr-2 text-orange-600">{events.length}</span>
               <span>events available</span>
             </div>
           </div>

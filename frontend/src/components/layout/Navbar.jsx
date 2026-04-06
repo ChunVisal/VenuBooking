@@ -16,6 +16,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import AccountProfile from "../common/LogoProfile";
+import SearchBar from "../common/SearchBar";
 
 const Navbar = () => {
   const { currentUser, loading, logout } = useContext(AuthContext);
@@ -53,7 +54,7 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sticky top-0 z-50 shadow-md">
+    <nav className="bg-white border-b border-gray-100 px-4 py-2  sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
         <Link
@@ -61,9 +62,6 @@ const Navbar = () => {
           className="flex items-center space-x-2 ml-2 group focus:outline-none"
         >
           <Calendar className="w-6 h-6 text-orange-600 group-hover:text-orange-700 transition-colors" />
-          <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">
-            VenuBooking
-          </h2>
         </Link>
 
         {/* Right Section */}
@@ -83,26 +81,7 @@ const Navbar = () => {
 
           {/* Utilities */}
           <div className="flex items-center space-x-3">
-            <div className="hidden sm:flex items-center space-x-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-orange-200 w-full max-w-xs">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search events, venues..."
-                className="text-sm bg-transparent placeholder-gray-500 outline-none w-full"
-              />
-            </div>
-
-            <button
-              aria-label="Search"
-              className={`${iconButtonClasses} sm:hidden`}
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            <button aria-label="Notifications" className={iconButtonClasses}>
-              <Bell className="w-5 h-5" />
-            </button>
-
+            <SearchBar />
             {/* Account Profile Component */}
             <AccountProfile currentUser={currentUser} onLogout={handleLogout} />
 

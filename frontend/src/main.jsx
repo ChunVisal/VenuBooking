@@ -5,15 +5,18 @@ import "./index.css";
 import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
+import { SearchProvider } from "./context/SearchContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <WishlistProvider>
-          <App />
-        </WishlistProvider>
-      </AuthProvider>
+      <SearchProvider>
+        <AuthProvider>
+          <WishlistProvider>
+            <App />
+          </WishlistProvider>
+        </AuthProvider>
+      </SearchProvider>
     </BrowserRouter>
   </StrictMode>,
 );

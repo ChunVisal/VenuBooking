@@ -61,7 +61,7 @@ const AccountProfile = ({ currentUser, onLogout }) => {
           <img
             src={currentUser.profile_image}
             alt={currentUser.username}
-            className="w-10 h-10 sm:w-17 sm:h-11 rounded-full object-cover border-2 border-gray-200 group-hover:border-orange-400 transition-colors"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-gray-200 group-hover:border-orange-400 transition-colors"
           />
         ) : (
           <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center border-1 border-orange-200 group-hover:border-orange-400 transition-colors">
