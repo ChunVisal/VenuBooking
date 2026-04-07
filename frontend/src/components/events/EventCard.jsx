@@ -102,7 +102,7 @@ const EventCard = ({ event }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
+          <div className="absolute top-3 right-3 flex items-center space-x-2 ">
             <button
               onClick={handleToggleWishlist}
               className={` p-2.5 rounded-full backdrop-blur-md transition-all ${

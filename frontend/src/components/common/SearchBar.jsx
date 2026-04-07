@@ -1,21 +1,13 @@
-// Updated SearchBar component with context
+// Updated SearchBar component - navigates to /events with params
 import { useState } from "react";
 import { Search, MapPin, LayoutGrid, ArrowRight, X } from "lucide-react";
-import { useSearch } from "../../context/SearchContext";
+import { useNavigate } from "react-router-dom";
 
 export default function SearchBar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    searchLocation,
-    setSearchLocation,
-    searchCategory,
-    setSearchCategory,
-    performSearch,
-    isSearching,
-    clearSearch,
-  } = useSearch();
-
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
+  const [searchCategory, setSearchCategory] = useState("All Categories");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -62,17 +54,32 @@ export default function SearchBar() {
           .slice(0, 8)
       : [];
 
-  const handleSearch = async (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
-    // Get events from your events list/API
-    const allEvents = window.allEvents || []; // Replace with your events data
-    await performSearch(allEvents, searchQuery, searchLocation, searchCategory);
+
+    // Build URL params
+    const params = new URLSearchParams();
+
+    if (searchQuery) params.append("q", searchQuery);
+    if (searchLocation) params.append("location", searchLocation);
+    if (searchCategory && searchCategory !== "All Categories") {
+      params.append("category", searchCategory);
+    }
+
+    // Navigate to events page with params
+    navigate(`/events?${params.toString()}`);
     setIsMobileOpen(false);
   };
 
   const handleLocationSelect = (selectedLocation) => {
     setSearchLocation(selectedLocation.name);
     setShowLocationDropdown(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchLocation("");
+    setSearchCategory("All Categories");
   };
 
   return (
@@ -112,7 +119,7 @@ export default function SearchBar() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search events by title, category..."
+                    placeholder="Search events by title..."
                     className="flex-1 outline-none bg-transparent text-gray-700 text-sm"
                     autoFocus
                   />
@@ -170,17 +177,10 @@ export default function SearchBar() {
 
                 <button
                   type="submit"
-                  disabled={isSearching}
-                  className="w-full bg-orange-600 text-white py-2.5 rounded-lg font-semibold hover:bg-orange-700 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  className="w-full bg-orange-600 text-white py-2.5 rounded-lg font-semibold hover:bg-orange-700 flex items-center justify-center gap-2 text-sm"
                 >
-                  {isSearching ? (
-                    <>Searching...</>
-                  ) : (
-                    <>
-                      <span>Find Events</span>
-                      <ArrowRight size={16} />
-                    </>
-                  )}
+                  <span>Find Events</span>
+                  <ArrowRight size={16} />
                 </button>
               </form>
             </div>
@@ -249,8 +249,7 @@ export default function SearchBar() {
         <button
           type="submit"
           onClick={handleSearch}
-          disabled={isSearching}
-          className="bg-orange-600 text-white px-3 py-1 rounded-sm font-semibold hover:bg-orange-700 flex items-center gap-0.5 text-xs disabled:opacity-50"
+          className="bg-orange-600 text-white px-3 py-1 rounded-sm font-semibold hover:bg-orange-700 flex items-center gap-0.5 text-xs"
         >
           <span>Find</span>
           <ArrowRight size={10} />
@@ -259,4 +258,3 @@ export default function SearchBar() {
     </>
   );
 }
-  

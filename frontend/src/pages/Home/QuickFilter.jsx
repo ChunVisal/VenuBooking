@@ -38,7 +38,7 @@ const QuickFilter = ({ currentCategory = "All", onCategoryChange }) => {
   };
 
   return (
-    <section className="mx-auto max-w-7xl px-4 sm:px-7">
+    <section className="mx-auto max-w-7xl px-4 mt-6 sm:px-7">
       {/* Circular Buttons with Label Underneath */}
       <div className="flex space-x-10 overflow-x-auto pb-4 scrollbar-custom">
         {filterCategories.map((filter, index) => {
