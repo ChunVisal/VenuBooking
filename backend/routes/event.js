@@ -449,5 +449,102 @@ router.delete("/:id", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Failed to delete event" });
   }
 });
+// GET reviews for an event
+router.get("/:eventId/reviews", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const result = await pool.query(
+      "SELECT reviews FROM events WHERE id = $1",
+      [eventId],
+    );
+
+    const reviews = result.rows[0]?.reviews || [];
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST a review
+router.post("/:eventId/reviews", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { rating, comment, userId, userName, userAvatar } = req.body;
+
+    // Get current event
+    const eventResult = await pool.query(
+      "SELECT reviews FROM events WHERE id = $1",
+      [eventId],
+    );
+
+    let reviews = eventResult.rows[0]?.reviews || [];
+
+    // Check if user already reviewed
+    const existingReview = reviews.find((r) => r.userId === userId);
+    if (existingReview) {
+      return res.status(400).json({ error: "You already reviewed this event" });
+    }
+
+    // Add new review
+    const newReview = {
+      id: Date.now(),
+      userId,
+      userName,
+      userAvatar,
+      rating,
+      comment,
+      createdAt: new Date().toISOString(),
+    };
+
+    reviews.unshift(newReview);
+
+    // Calculate new average rating
+    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+    const avgRating = totalRating / reviews.length;
+
+    // Update event
+    await pool.query(
+      "UPDATE events SET reviews = $1, rating = $2 WHERE id = $3",
+      [JSON.stringify(reviews), avgRating, eventId],
+    );
+
+    res.status(201).json(newReview);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE a review
+router.delete("/:eventId/reviews/:reviewId", async (req, res) => {
+  try {
+    const { eventId, reviewId } = req.params;
+
+    // Get current event
+    const eventResult = await pool.query(
+      "SELECT reviews FROM events WHERE id = $1",
+      [eventId],
+    );
+
+    let reviews = eventResult.rows[0]?.reviews || [];
+
+    // Remove review
+    reviews = reviews.filter((r) => r.id !== parseInt(reviewId));
+
+    // Recalculate average
+    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+    const avgRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+
+    // Update event
+    await pool.query(
+      "UPDATE events SET reviews = $1, rating = $2 WHERE id = $3",
+      [JSON.stringify(reviews), avgRating, eventId],
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

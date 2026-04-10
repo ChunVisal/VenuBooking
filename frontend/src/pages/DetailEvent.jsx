@@ -12,6 +12,7 @@ import {
 } from "react-icons/fa";
 import { FiShare2 } from "react-icons/fi";
 import api from "../api/axiosConfig";
+import Preview from "../components/events/ReviewSection";
 import { AuthContext } from "../context/AuthContext";
 import { WishlistContext } from "../context/WishlistContext";
 import { useContext } from "react";
@@ -449,6 +450,7 @@ export default function EventDetails() {
           <h2 className="font-semibold">About This Event</h2>
           <p className="text-sm text-gray-700">{event.description}</p>
         </div>
+        <Preview event={event} />
       </div>
 
       {/* DESKTOP LAYOUT - Same structure */}
@@ -482,6 +484,7 @@ export default function EventDetails() {
             <h2 className="font-semibold text-lg">About This Event</h2>
             <p className="text-gray-700">{event.description}</p>
           </div>
+          <Preview event={event} />
         </div>
 
         {/* Right Column */}
@@ -586,7 +589,10 @@ export default function EventDetails() {
                 className="flex items-center justify-center gap-2 rounded-md bg-green-400 shadow-md py-3 text-white font-semibold text-sm"
               >
                 <FaCheckCircle className="w-4 h-4" color="white" />
-                <span>Booked ✓ for {event.price ? parseFloat(event.price).toFixed(2) : "0"} $</span> 
+                <span>
+                  Booked ✓ for{" "}
+                  {event.price ? parseFloat(event.price).toFixed(2) : "0"} $
+                </span>
               </Link>
             ) : (
               <Link
