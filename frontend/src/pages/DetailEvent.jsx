@@ -12,7 +12,7 @@ import {
 } from "react-icons/fa";
 import { FiShare2 } from "react-icons/fi";
 import api from "../api/axiosConfig";
-import Preview from "../components/events/ReviewSection";
+import StarRating from "../components/common/StarRating";
 import { AuthContext } from "../context/AuthContext";
 import { WishlistContext } from "../context/WishlistContext";
 import { useContext } from "react";
@@ -20,7 +20,7 @@ import toast from "react-hot-toast";
 
 // Import Leaflet
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
+import L, { Events } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 // Fix marker icons
@@ -49,8 +49,23 @@ export default function EventDetails() {
   const [mapLocation, setMapLocation] = useState(null);
   const [geocoding, setGeocoding] = useState(false);
 
+  const [userRating, setUserRating] = useState(0);
+  const [avgRating, setAvgRating] = useState(0);
+  const [totalRatings, setTotalRatings] = useState(0);
+
   const [hasBooked, setHasBooked] = useState(false);
   const [existingBooking, setExistingBooking] = useState(null);
+
+  const handleRate = async (rating) => {
+    try {
+      const response = await api.post(`/events/${event.id}/rate`, { rating });
+      setAvgRating(response.data.avg_rating);
+      setTotalRatings(response.data.total_ratings);
+      setUserRating(rating);
+    } catch (error) {
+      console.error("Error rating:", error);
+    }
+  };
 
   // Check if event is in wishlist
   useEffect(() => {
@@ -88,7 +103,6 @@ export default function EventDetails() {
       setGeocoding(false);
     }
   };
-
   // Fetch event data
   useEffect(() => {
     const fetchEvent = async () => {
@@ -266,7 +280,22 @@ export default function EventDetails() {
 
   // Get display address
   const displayAddress = mapLocation?.address || event.location || event.venue;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
+  // If no event after loading, show error
+  if (!event) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-gray-500">Event not found</p>
+      </div>
+    );
+  }
   return (
     <div className="max-w-7xl mx-auto p-4 font-sans">
       {/* MOBILE LAYOUT */}
@@ -279,7 +308,6 @@ export default function EventDetails() {
             className="w-full h-full rounded-sm object-cover"
           />
         </div>
-
         {/* Image Thumbnails */}
         {images.length > 1 && (
           <div className="flex gap-2 overflow-x-auto">
@@ -296,7 +324,6 @@ export default function EventDetails() {
             ))}
           </div>
         )}
-
         {/* Organizer Info */}
         {organizer && (
           <div className="flex items-center gap-3 bg-orange-400 text-white p-3 rounded-lg">
@@ -328,7 +355,6 @@ export default function EventDetails() {
             </div>
           </div>
         )}
-
         {/* Event Created Date */}
         {event.created_at && (
           <div className="flex items-center gap-2 text-gray-500 text-xs border-b pb-2">
@@ -336,7 +362,6 @@ export default function EventDetails() {
             <span>Event created: {formatCreatedDate(event.created_at)}</span>
           </div>
         )}
-
         <div className="flex justify-between items-start">
           <div className="flex flex-col gap-2">
             <h1 className="text-lg font-bold">{event.title}</h1>
@@ -357,7 +382,6 @@ export default function EventDetails() {
             </button>
           </div>
         </div>
-
         {/* Location with Map - Desktop */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -397,7 +421,6 @@ export default function EventDetails() {
             </div>
           )}
         </div>
-
         {/* Booking Button - Conditional based on booking status */}
         {!currentUser ? (
           <Link
@@ -429,7 +452,6 @@ export default function EventDetails() {
             Book Now - ${event.price ? parseFloat(event.price).toFixed(2) : "0"}
           </Link>
         )}
-
         {/* Highlights */}
         {highlights.length > 0 && (
           <div className="space-y-2">
@@ -444,13 +466,33 @@ export default function EventDetails() {
             </div>
           </div>
         )}
-
         {/* About This Event */}
         <div className="space-y-2">
           <h2 className="font-semibold">About This Event</h2>
           <p className="text-sm text-gray-700">{event.description}</p>
         </div>
-        <Preview event={event} />
+        <div className="flex items-center gap-1 mt-2">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => handleRate(star)}
+                className="focus:outline-none"
+              >
+                <FaStar
+                  size={16}
+                  className={
+                    star <= avgRating
+                      ? "fill-orange-500 text-orange-500"
+                      : "text-gray-300"
+                  }
+                />
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-500 ml-1">({totalRatings})</span>
+        </div>
+        STEP 5: R
       </div>
 
       {/* DESKTOP LAYOUT - Same structure */}
@@ -464,7 +506,6 @@ export default function EventDetails() {
               className="w-full h-full rounded-sm object-cover"
             />
           </div>
-
           {images.length > 1 && (
             <div className="grid grid-cols-4 gap-2">
               {images.map((img, i) => (
@@ -479,12 +520,31 @@ export default function EventDetails() {
               ))}
             </div>
           )}
-
           <div className="space-y-3">
             <h2 className="font-semibold text-lg">About This Event</h2>
             <p className="text-gray-700">{event.description}</p>
           </div>
-          <Preview event={event} />
+          <div className="flex items-center gap-1 mt-2">
+            <div className="flex gap-0.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => handleRate(star)}
+                  className="focus:outline-none"
+                >
+                  <FaStar
+                    size={16}
+                    className={
+                      star <= avgRating
+                        ? "fill-orange-500 text-orange-500"
+                        : "text-gray-300"
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-gray-500 ml-1">({totalRatings})</span>
+          </div>
         </div>
 
         {/* Right Column */}

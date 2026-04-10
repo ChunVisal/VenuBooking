@@ -69,7 +69,9 @@ router.post("/google", async (req, res) => {
 // -------------------------
 router.get("/", async (_req, res) => {
   try {
-    const data = await db.query("SELECT * FROM events ORDER BY date ASC");
+    const data = await db.query(
+      "SELECT *, COALESCE(avg_rating, 0) as avg_rating, COALESCE(total_ratings, 0) as total_ratings FROM events ORDER BY date ASC",
+    );
     return res.status(200).json(data.rows);
   } catch (err) {
     console.error(err);
@@ -123,7 +125,9 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
 
     const query = `
-      SELECT e.*, 
+      SELECT e.*,
+             COALESCE(e.avg_rating, 0) as avg_rating,
+             COALESCE(e.total_ratings, 0) as total_ratings,
              u.id as organizer_id,
              u.username as organizer_username,
              u.email as organizer_email,
@@ -449,101 +453,36 @@ router.delete("/:id", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Failed to delete event" });
   }
 });
-// GET reviews for an event
-router.get("/:eventId/reviews", async (req, res) => {
+
+// Rate an event
+router.post("/:id/rate", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { rating } = req.body;
+
   try {
-    const { eventId } = req.params;
-
-    const result = await pool.query(
-      "SELECT reviews FROM events WHERE id = $1",
-      [eventId],
-    );
-
-    const reviews = result.rows[0]?.reviews || [];
-    res.json(reviews);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST a review
-router.post("/:eventId/reviews", async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    const { rating, comment, userId, userName, userAvatar } = req.body;
-
     // Get current event
-    const eventResult = await pool.query(
-      "SELECT reviews FROM events WHERE id = $1",
-      [eventId],
+    const event = await db.query(
+      "SELECT avg_rating, total_ratings FROM events WHERE id = $1",
+      [id],
     );
 
-    let reviews = eventResult.rows[0]?.reviews || [];
-
-    // Check if user already reviewed
-    const existingReview = reviews.find((r) => r.userId === userId);
-    if (existingReview) {
-      return res.status(400).json({ error: "You already reviewed this event" });
+    if (event.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
     }
 
-    // Add new review
-    const newReview = {
-      id: Date.now(),
-      userId,
-      userName,
-      userAvatar,
-      rating,
-      comment,
-      createdAt: new Date().toISOString(),
-    };
+    const oldAvg = Number(event.rows[0].avg_rating) || 0;
+    const oldTotal = Number(event.rows[0].total_ratings) || 0;
+    const newTotal = oldTotal + 1;
+    const newAvg = (oldAvg * oldTotal + rating) / newTotal;
 
-    reviews.unshift(newReview);
-
-    // Calculate new average rating
-    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
-    const avgRating = totalRating / reviews.length;
-
-    // Update event
-    await pool.query(
-      "UPDATE events SET reviews = $1, rating = $2 WHERE id = $3",
-      [JSON.stringify(reviews), avgRating, eventId],
+    await db.query(
+      "UPDATE events SET avg_rating = $1, total_ratings = $2 WHERE id = $3",
+      [newAvg, newTotal, id],
     );
 
-    res.status(201).json(newReview);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// DELETE a review
-router.delete("/:eventId/reviews/:reviewId", async (req, res) => {
-  try {
-    const { eventId, reviewId } = req.params;
-
-    // Get current event
-    const eventResult = await pool.query(
-      "SELECT reviews FROM events WHERE id = $1",
-      [eventId],
-    );
-
-    let reviews = eventResult.rows[0]?.reviews || [];
-
-    // Remove review
-    reviews = reviews.filter((r) => r.id !== parseInt(reviewId));
-
-    // Recalculate average
-    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
-    const avgRating = reviews.length > 0 ? totalRating / reviews.length : 0;
-
-    // Update event
-    await pool.query(
-      "UPDATE events SET reviews = $1, rating = $2 WHERE id = $3",
-      [JSON.stringify(reviews), avgRating, eventId],
-    );
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ success: true, avg_rating: newAvg, total_ratings: newTotal });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
