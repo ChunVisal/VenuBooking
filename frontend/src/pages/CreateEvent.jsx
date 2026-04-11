@@ -40,16 +40,16 @@ const CreateEventPage = () => {
   const [locationMethod, setLocationMethod] = useState("search");
 
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    date: "",
-    time: "",
-    venue: "",
-    price: "",
-    category: "",
+    title: "Test Event",
+    description: "Test Description",
+    date: new Date().toISOString().split("T")[0],
+    time: "12:00",
+    venue: "Test Venue",
+    price: "0",
+    category: "Test",
     availableSeats: "",
     eventType: "offline",
-    location: "",
+    location: "Phnom Penh",
     tags: [],
     highlights: [],
   });
@@ -115,10 +115,19 @@ const CreateEventPage = () => {
 
   const handleLocationSelect = (placeDetails) => {
     setSelectedLocation(placeDetails);
+
+    // Use the full address, not just the name
+    let fullLocation = placeDetails.address || placeDetails.name;
+
+    // Make sure it has more than just "Cambodia"
+    if (fullLocation === "Cambodia" || !fullLocation) {
+      fullLocation = "Phnom Penh, Cambodia";
+    }
+
     setFormData((prev) => ({
       ...prev,
-      location: placeDetails.name,
-      venue: placeDetails.name.split(",")[0]?.trim() || placeDetails.name,
+      location: fullLocation,
+      venue: placeDetails.name || fullLocation.split(",")[0],
     }));
   };
 
