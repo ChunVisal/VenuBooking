@@ -454,35 +454,59 @@ router.delete("/:id", verifyToken, async (req, res) => {
   }
 });
 
-// Rate an event
-router.post("/:id/rate", verifyToken, async (req, res) => {
-  const { id } = req.params;
+// POST rate an event
+router.post("/:eventId/rate", verifyToken, async (req, res) => {
+  const { eventId } = req.params;
   const { rating } = req.body;
-
+  const userId = req.user.id;
+  
   try {
     // Get current event
     const event = await db.query(
       "SELECT avg_rating, total_ratings FROM events WHERE id = $1",
-      [id],
+      [eventId]
     );
-
+    
     if (event.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
-
-    const oldAvg = Number(event.rows[0].avg_rating) || 0;
-    const oldTotal = Number(event.rows[0].total_ratings) || 0;
-    const newTotal = oldTotal + 1;
-    const newAvg = (oldAvg * oldTotal + rating) / newTotal;
-
+    
+    // Check if user already rated (using localStorage on frontend)
+    const currentAvg = parseFloat(event.rows[0].avg_rating) || 0;
+    const currentTotal = parseInt(event.rows[0].total_ratings) || 0;
+    
+    // Calculate new average
+    const newTotal = currentTotal + 1;
+    const newAvg = ((currentAvg * currentTotal) + rating) / newTotal;
+    
+    // Update database
     await db.query(
       "UPDATE events SET avg_rating = $1, total_ratings = $2 WHERE id = $3",
-      [newAvg, newTotal, id],
+      [newAvg, newTotal, eventId]
     );
-
-    res.json({ success: true, avg_rating: newAvg, total_ratings: newTotal });
+    
+    res.json({ 
+      success: true, 
+      avg_rating: newAvg, 
+      total_ratings: newTotal 
+    });
   } catch (err) {
+    console.error("Rating error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Check if user already rated
+router.get("/:eventId/has-rated", verifyToken, async (req, res) => {
+  const { eventId } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // You can create a simple table to track who rated
+    // For now, return false
+    res.json({ hasRated: false });
+  } catch (err) {
+    res.json({ hasRated: false });
   }
 });
 

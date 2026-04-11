@@ -471,28 +471,12 @@ export default function EventDetails() {
           <h2 className="font-semibold">About This Event</h2>
           <p className="text-sm text-gray-700">{event.description}</p>
         </div>
-        <div className="flex items-center gap-1 mt-2">
-          <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => handleRate(star)}
-                className="focus:outline-none"
-              >
-                <FaStar
-                  size={16}
-                  className={
-                    star <= avgRating
-                      ? "fill-orange-500 text-orange-500"
-                      : "text-gray-300"
-                  }
-                />
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-gray-500 ml-1">({totalRatings})</span>
-        </div>
-        STEP 5: R
+        <StarRating
+          eventId={event.id}
+          eventTitle={event.title}
+          initialAvg={event.avg_rating}
+          initialTotal={event.total_ratings}
+        />
       </div>
 
       {/* DESKTOP LAYOUT - Same structure */}
@@ -524,27 +508,12 @@ export default function EventDetails() {
             <h2 className="font-semibold text-lg">About This Event</h2>
             <p className="text-gray-700">{event.description}</p>
           </div>
-          <div className="flex items-center gap-1 mt-2">
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => handleRate(star)}
-                  className="focus:outline-none"
-                >
-                  <FaStar
-                    size={16}
-                    className={
-                      star <= avgRating
-                        ? "fill-orange-500 text-orange-500"
-                        : "text-gray-300"
-                    }
-                  />
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-gray-500 ml-1">({totalRatings})</span>
-          </div>
+          <StarRating
+            eventId={event.id}
+            eventTitle={event.title}
+            initialAvg={event.avg_rating}
+            initialTotal={event.total_ratings}
+          />
         </div>
 
         {/* Right Column */}
