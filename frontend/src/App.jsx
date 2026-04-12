@@ -1,5 +1,9 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
+
 import Navbar from "./components/layout/Navbar";
 import Home from "./pages/Home/Home";
 import Footer from "./components/layout/Footer";
@@ -19,14 +23,17 @@ import ProtectedRoute from "./pages/ProtectedRoute";
 import MyEvents from "./pages/MyEvents";
 import EditEvent from "./pages/EditEvent";
 import Breadcrumb from "./components/common/Breadcrumb";
-import { Toaster } from "react-hot-toast";
+import ScrollToTop from "./components/common/ScrollToTop";
 
 function App() {
+
+  
   return (
     <>
       <Toaster position="top-center" reverseOrder={false} />
       <Navbar />
       <Breadcrumb />
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/event/:id" element={<DetailEvent />} />

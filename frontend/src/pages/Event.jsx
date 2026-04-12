@@ -1,10 +1,11 @@
 // src/pages/Event.jsx
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, Search as SearchIcon, X } from "lucide-react";
 import QuickFilter from "../components/common/CategoryFilter";
 import EventCard from "../components/events/EventCard";
 import api from "../api/axiosConfig";
+import { useScrollRestoration } from "../components/common/ScrollRestoration";
 
 const Event = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +19,8 @@ const Event = () => {
   const searchQuery = searchParams.get("q") || "";
   const searchLocation = searchParams.get("location") || "";
   const dateFilter = searchParams.get("date") || "All";
+
+  const scrollRef = useScrollRestoration("events-page");
 
   useEffect(() => {
     fetchEvents();
@@ -188,7 +191,7 @@ const Event = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div ref={scrollRef} className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header with Date Filters */}
         <div className="mb-8">

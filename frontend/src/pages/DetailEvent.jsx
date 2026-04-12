@@ -13,6 +13,7 @@ import {
 import { FiShare2 } from "react-icons/fi";
 import api from "../api/axiosConfig";
 import StarRating from "../components/common/StarRating";
+import SimilarEvents from "../components/events/SimilarEvents";
 import { AuthContext } from "../context/AuthContext";
 import { WishlistContext } from "../context/WishlistContext";
 import { useContext } from "react";
@@ -659,6 +660,9 @@ export default function EventDetails() {
           )}
         </div>
       </div>
+
+      <SimilarEvents currentEvent={event} />
+      
     </div>
   );
 }

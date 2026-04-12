@@ -1,8 +1,9 @@
 // src/pages/Home/EventList.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapPin, Navigation } from "lucide-react";
 import api from "../../api/axiosConfig";
 import EventCard from "../../components/events/EventCard";
+import { useLocation } from "react-router-dom";
 
 export default function EventList() {
   const [events, setEvents] = useState([]);
@@ -15,6 +16,24 @@ export default function EventList() {
   const [selectedDateFilter, setSelectedDateFilter] = useState("All");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [availableLocations, setAvailableLocations] = useState([]);
+
+  const scrollRef = useRef(null);
+  const location = useLocation();
+
+  // Save scroll position
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem("home-scroll");
+    if (savedScroll && scrollRef.current) {
+      scrollRef.current.scrollTo(0, parseInt(savedScroll));
+    }
+  }, []);
+
+  // Save on scroll
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      sessionStorage.setItem("home-scroll", scrollRef.current.scrollTop);
+    }
+  };
 
   useEffect(() => {
     fetchAllEvents();
@@ -120,7 +139,11 @@ export default function EventList() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+    >
       {/* Filters - Clean text only */}
       <div className="flex items-center justify-between mb-6">
         {/* Date Filters */}
