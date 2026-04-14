@@ -14,6 +14,7 @@ import { FiShare2 } from "react-icons/fi";
 import api from "../api/axiosConfig";
 import StarRating from "../components/common/StarRating";
 import SimilarEvents from "../components/events/SimilarEvents";
+import ShareButton from "../components/common/ShareButton";
 import { AuthContext } from "../context/AuthContext";
 import { WishlistContext } from "../context/WishlistContext";
 import { useContext } from "react";
@@ -56,17 +57,6 @@ export default function EventDetails() {
 
   const [hasBooked, setHasBooked] = useState(false);
   const [existingBooking, setExistingBooking] = useState(null);
-
-  const handleRate = async (rating) => {
-    try {
-      const response = await api.post(`/events/${event.id}/rate`, { rating });
-      setAvgRating(response.data.avg_rating);
-      setTotalRatings(response.data.total_ratings);
-      setUserRating(rating);
-    } catch (error) {
-      console.error("Error rating:", error);
-    }
-  };
 
   // Check if event is in wishlist
   useEffect(() => {
@@ -378,9 +368,11 @@ export default function EventDetails() {
                 className={`w-6 h-6 ${isLiked ? "text-red-500" : "text-gray-400"}`}
               />
             </button>
-            <button onClick={handleShare} className="p-2">
-              <FiShare2 className="w-6 h-6 text-gray-500" />
-            </button>
+            <ShareButton
+              eventId={event.id}
+              eventTitle={event.title}
+              eventImage={event.image}
+            />
           </div>
         </div>
         {/* Location with Map - Desktop */}
@@ -568,9 +560,12 @@ export default function EventDetails() {
                   className={`w-6 h-6 ${isLiked ? "text-red-500" : "text-gray-400"}`}
                 />
               </button>
-              <button onClick={handleShare} className="p-2">
-                <FiShare2 className="w-6 h-6 text-gray-500" />
-              </button>
+              <ShareButton
+                type="event"
+                id={event.id}
+                title={event.title}
+                image={event.image}
+              />
             </div>
           </div>
           {/* Location with Map - Desktop */}
@@ -662,7 +657,6 @@ export default function EventDetails() {
       </div>
 
       <SimilarEvents currentEvent={event} />
-      
     </div>
   );
 }

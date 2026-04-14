@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import toast from "react-hot-toast";
+import ShareButton from "../components/common/ShareButton";
 
 function PublicProfile() {
   const { username } = useParams();
@@ -186,6 +187,7 @@ function PublicProfile() {
                 <Mail className="mr-2 h-4 w-4 text-gray-500" />
                 Contact
               </a>
+              <ShareButton type="profile" id={username} title={username} />
             </div>
           </div>
         </div>

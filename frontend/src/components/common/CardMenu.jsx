@@ -2,15 +2,16 @@
 import { useState, useRef, useEffect } from "react";
 import {
   MoreVertical,
-  Share2,
   Flag,
   BookmarkPlus,
   ExternalLink,
+  Share2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const CardMenu = ({ eventId }) => {
+const CardMenu = ({ eventId, eventTitle, eventImage }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -25,53 +26,57 @@ const CardMenu = ({ eventId }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleMenuAction = (action, e) => {
+  const handleShare = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    switch (action) {
-      case "share":
-        // Implement share functionality
-        if (navigator.share) {
-          navigator.share({
-            title: "Check out this event",
-            url: `${window.location.origin}/event/${eventId}`,
-          });
-        } else {
-          navigator.clipboard.writeText(
-            `${window.location.origin}/event/${eventId}`,
-          );
-          alert("Link copied to clipboard!");
-        }
-        break;
-      case "report":
-        // Implement report functionality
-        alert("Thank you for your report. We will review this event.");
-        break;
-      case "save":
-        // Implement save for later
-        alert("Event saved for later!");
-        break;
-      case "open":
-        navigate(`/event/${eventId}`);
-        break;
-      default:
-        break;
+    const eventUrl = `${window.location.origin}/event/${eventId}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: eventTitle || "Check out this event",
+        text: `Check out this event: ${eventTitle}`,
+        url: eventUrl,
+      });
+    } else {
+      navigator.clipboard.writeText(eventUrl);
+      alert("Link copied to clipboard!");
     }
 
     setIsOpen(false);
   };
 
+  const handleReport = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    alert("Thank you for your report. We will review this event.");
+    setIsOpen(false);
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    alert("Event saved for later!");
+    setIsOpen(false);
+  };
+
+  const handleOpen = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/event/${eventId}`);
+    setIsOpen(false);
+  };
+
   const menuItems = [
-    { icon: Share2, label: "Share Event", action: "share" },
-    { icon: BookmarkPlus, label: "Save for Later", action: "save" },
-    { icon: ExternalLink, label: "Open Event", action: "open" },
-    { icon: Flag, label: "Report Event", action: "report", danger: true },
+    { icon: Share2, label: "Share Event", onClick: handleShare },
+    { icon: BookmarkPlus, label: "Save for Later", onClick: handleSave },
+    { icon: ExternalLink, label: "Open Event", onClick: handleOpen },
+    { icon: Flag, label: "Report Event", onClick: handleReport, danger: true },
   ];
 
   return (
     <div className="relative" ref={menuRef}>
-      {/* Burger Menu Button */}
+      {/* Menu Button */}
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -91,7 +96,7 @@ const CardMenu = ({ eventId }) => {
             {menuItems.map((item, index) => (
               <button
                 key={index}
-                onClick={(e) => handleMenuAction(item.action, e)}
+                onClick={item.onClick}
                 className={`w-full flex items-center px-4 py-2 text-sm transition-colors hover:bg-gray-50 ${
                   item.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700"
                 }`}

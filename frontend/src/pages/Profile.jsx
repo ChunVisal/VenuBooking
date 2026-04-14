@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { useState, useEffect } from "react";
+import ShareButton from "../components/common/ShareButton";
 
 function Profile() {
   const { currentUser, loading, logout } = useContext(AuthContext);
@@ -174,6 +175,11 @@ function Profile() {
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </button>
+              <ShareButton
+                type="profile"
+                id={currentUser.username}
+                title={currentUser.username}
+              />
             </div>
           </div>
         </div>
