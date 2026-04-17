@@ -198,7 +198,7 @@ function Profile() {
               <div className="px-4">
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {currentUser.bio ||
-                    "Update your bio to showcase your skills as a developer."}
+                    "Update your bio to showcase about you."}
                 </p>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 pt-4 border-t border-gray-50">

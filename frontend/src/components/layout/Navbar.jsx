@@ -17,6 +17,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import AccountProfile from "../common/LogoProfile";
 import SearchBar from "../common/SearchBar";
+import NotificationBell from "../common/NotificationBell";
 
 const Navbar = () => {
   const { currentUser, loading, logout } = useContext(AuthContext);
@@ -83,6 +84,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-3">
             <SearchBar />
             {/* Account Profile Component */}
+            <NotificationBell />
             <AccountProfile currentUser={currentUser} onLogout={handleLogout} />
 
             {/* Mobile Menu Toggle */}

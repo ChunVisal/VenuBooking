@@ -24,10 +24,9 @@ import MyEvents from "./pages/MyEvents";
 import EditEvent from "./pages/EditEvent";
 import Breadcrumb from "./components/common/Breadcrumb";
 import ScrollToTop from "./components/common/ScrollToTop";
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
-
-  
   return (
     <>
       <Toaster position="top-center" reverseOrder={false} />
@@ -48,6 +47,7 @@ function App() {
         <Route path="/events" element={<Event />} />
         <Route path="/edit-profile" element={<EditProfile />} />
         <Route path="/profile/:username" element={<PublicProfile />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route
           path="/profile"
           element={
@@ -55,7 +55,7 @@ function App() {
               <Profile />
             </ProtectedRoute>
           }
-        />  
+        />
         <Route
           path="/edit-event/:id"
           element={

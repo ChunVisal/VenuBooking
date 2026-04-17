@@ -25,8 +25,8 @@ export const WishlistProvider = ({ children }) => {
 
   const addToWishlist = async (eventId) => {
     try {
-      await api.post(`/wishlist/${eventId}`);
-      await fetchWishlist(); // Refresh list
+      await api.post("/wishlist/add", { event_id: eventId }); // Changed
+      await fetchWishlist();
     } catch (err) {
       throw err;
     }
