@@ -2,21 +2,14 @@ import { useState, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axiosConfig";
-import {
-  Bell,
-  Calendar,
-  Heart,
-  Eye,
-  CheckCircle,
-  Loader2,
-  Trash2,
-} from "lucide-react";
+import { Bell, Calendar, Heart, Eye, Loader2, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const NotificationsPage = () => {
   const { currentUser } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (currentUser) {
@@ -41,9 +34,14 @@ const NotificationsPage = () => {
   const markAsRead = async (id) => {
     try {
       await api.put(`/notifications/${id}/read`);
-      setNotifications(
-        notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
+      const updatedNotifications = notifications.map((n) =>
+        n.id === id ? { ...n, is_read: true } : n,
       );
+      setNotifications(updatedNotifications);
+      const newUnreadCount = updatedNotifications.filter(
+        (n) => !n.is_read,
+      ).length;
+      setUnreadCount(newUnreadCount);
     } catch (err) {
       console.error("Error marking as read:", err);
     }
@@ -52,7 +50,12 @@ const NotificationsPage = () => {
   const markAllAsRead = async () => {
     try {
       await api.put("/notifications/mark-all-read");
-      setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
+      const updatedNotifications = notifications.map((n) => ({
+        ...n,
+        is_read: true,
+      }));
+      setNotifications(updatedNotifications);
+      setUnreadCount(0);
       toast.success("All notifications marked as read");
     } catch (err) {
       console.error("Error marking all as read:", err);
@@ -62,18 +65,24 @@ const NotificationsPage = () => {
   const deleteNotification = async (id) => {
     try {
       await api.delete(`/notifications/${id}`);
-      // Remove from UI immediately
+      // Remove from state immediately
       const updatedNotifications = notifications.filter((n) => n.id !== id);
       setNotifications(updatedNotifications);
-      // Update unread count
       const newUnreadCount = updatedNotifications.filter(
         (n) => !n.is_read,
       ).length;
       setUnreadCount(newUnreadCount);
       toast.success("Notification deleted");
     } catch (err) {
-      console.error("Error:", err);
-      toast.error("Failed to delete");
+      // If 404, still remove from UI
+      if (err.response?.status === 404) {
+        const updatedNotifications = notifications.filter((n) => n.id !== id);
+        setNotifications(updatedNotifications);
+        toast.success("Notification removed");
+      } else {
+        console.error("Error:", err);
+        toast.error("Failed to delete");
+      }
     }
   };
 
@@ -125,20 +134,25 @@ const NotificationsPage = () => {
                 <h1 className="text-2xl font-bold text-gray-900">
                   Notifications
                 </h1>
+                {unreadCount > 0 && (
+                  <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded-full">
+                    {unreadCount} unread
+                  </span>
+                )}
               </div>
-              <div className="flex gap-6">
+              <div className="flex gap-4">
                 {notifications.some((n) => !n.is_read) && (
                   <button
                     onClick={markAllAsRead}
                     className="text-sm text-orange-500 hover:text-orange-600"
                   >
-                    Mark all as read
+                    Mark all read
                   </button>
                 )}
                 {notifications.length > 0 && (
                   <button
                     onClick={deleteAllNotifications}
-                    className="text-sm text-white hover:text-red-600 p-2 px-3 rounded-lg bg-red-500"
+                    className="text-sm bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600"
                   >
                     Delete all
                   </button>
@@ -160,10 +174,9 @@ const NotificationsPage = () => {
               {notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-6 hover:bg-gray-50 transition cursor-pointer ${
+                  className={`p-6 hover:bg-gray-50 transition ${
                     !notif.is_read ? "bg-orange-50" : ""
                   }`}
-                  onClick={() => markAsRead(notif.id)}
                 >
                   <div className="flex gap-4">
                     <div className="flex-shrink-0">
@@ -183,23 +196,22 @@ const NotificationsPage = () => {
                               minute: "2-digit",
                             })}
                           </p>
-                          {notif.message.includes("@") && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <Mail className="w-3 h-3" />
-                              <span>Email sent</span>
-                            </div>
-                          )}
                         </div>
-                        <div className="flex items-center gap-5">
+                        <div className="flex items-center gap-3">
+                          {!notif.is_read && (
+                            <button
+                              onClick={() => markAsRead(notif.id)}
+                              className="text-xs text-green-500 hover:text-green-600"
+                            >
+                              Mark read
+                            </button>
+                          )}
                           <button
                             onClick={() => deleteNotification(notif.id)}
                             className="text-red-400 hover:text-red-600"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
-                          {!notif.is_read && (
-                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                          )}
                         </div>
                       </div>
                     </div>
