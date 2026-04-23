@@ -1,50 +1,58 @@
 import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
+import api from "../../api/axiosConfig";
 import RatingModal from "./RatingModal";
 
-const RatingStars = ({
-  eventId,
-  eventTitle,
-  initialAvg = 0,
-  initialTotal = 0,
-}) => {
-  const [avgRating, setAvgRating] = useState(initialAvg);
-  const [totalRatings, setTotalRatings] = useState(initialTotal);
+const RatingStars = ({ eventId, eventTitle }) => {
+  const [avgRating, setAvgRating] = useState(0);
+  const [totalRatings, setTotalRatings] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [hasRated, setHasRated] = useState(false);
-  const [popupShown, setPopupShown] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check if user already rated (from localStorage)
-  useEffect(() => {
-    const rated = localStorage.getItem(`rated_${eventId}`);
-    if (rated) {
-      setHasRated(true);
-      setPopupShown(true);
+  // Fetch REAL data from database
+  const fetchRatingData = async () => {
+    try {
+      const response = await api.get(`/events/${eventId}`);
+      setAvgRating(response.data.avg_rating || 0);
+      setTotalRatings(response.data.total_ratings || 0);
+
+      // Check if user already rated
+      const token = localStorage.getItem("token");
+      if (token) {
+        const ratedRes = await api.get(`/events/${eventId}/has-rated`);
+        setHasRated(ratedRes.data.hasRated);
+      }
+    } catch (err) {
+      console.error("Error fetching rating:", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchRatingData();
   }, [eventId]);
 
-  // Auto popup modal after 2 seconds
+  // Auto popup modal (only if not rated)
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && !hasRated && !popupShown) {
+    if (token && !hasRated && !loading) {
       const timer = setTimeout(() => {
         setShowModal(true);
-        setPopupShown(true);
       }, 2000);
-
       return () => clearTimeout(timer);
     }
-  }, [hasRated, popupShown, eventId]);
+  }, [hasRated, loading]);
 
-  const handleRated = (newAvg, newTotal) => {
-    setAvgRating(newAvg);
-    setTotalRatings(newTotal);
-    setHasRated(true);
-    localStorage.setItem(`rated_${eventId}`, "true");
+  const handleRated = async () => {
+    // Refresh data from database after rating
+    await fetchRatingData();
     setShowModal(false);
   };
 
-  // Display only stars and total (no click to rate)
+  if (loading) return null;
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -64,7 +72,6 @@ const RatingStars = ({
         <span className="text-xs text-gray-500">({totalRatings} Users)</span>
       </div>
 
-      {/* Rating Modal - auto pops up after 2 seconds */}
       {showModal && (
         <RatingModal
           eventId={eventId}

@@ -2,7 +2,15 @@ import { useState, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axiosConfig";
-import { Bell, Calendar, Heart, Eye, CheckCircle, Loader2 } from "lucide-react";
+import {
+  Bell,
+  Calendar,
+  Heart,
+  Eye,
+  CheckCircle,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 const NotificationsPage = () => {
@@ -20,6 +28,8 @@ const NotificationsPage = () => {
     try {
       const response = await api.get("/notifications/my-notifications");
       setNotifications(response.data);
+      const unread = response.data.filter((n) => !n.is_read).length;
+      setUnreadCount(unread);
     } catch (err) {
       console.error("Error fetching notifications:", err);
       toast.error("Failed to load notifications");
@@ -46,6 +56,38 @@ const NotificationsPage = () => {
       toast.success("All notifications marked as read");
     } catch (err) {
       console.error("Error marking all as read:", err);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      // Remove from UI immediately
+      const updatedNotifications = notifications.filter((n) => n.id !== id);
+      setNotifications(updatedNotifications);
+      // Update unread count
+      const newUnreadCount = updatedNotifications.filter(
+        (n) => !n.is_read,
+      ).length;
+      setUnreadCount(newUnreadCount);
+      toast.success("Notification deleted");
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Failed to delete");
+    }
+  };
+
+  const deleteAllNotifications = async () => {
+    if (window.confirm("⚠️ Delete ALL notifications? This cannot be undone!")) {
+      try {
+        await api.delete("/notifications/delete-all");
+        setNotifications([]);
+        setUnreadCount(0);
+        toast.success("All notifications deleted");
+      } catch (err) {
+        console.error("Error:", err);
+        toast.error("Failed to delete");
+      }
     }
   };
 
@@ -84,14 +126,24 @@ const NotificationsPage = () => {
                   Notifications
                 </h1>
               </div>
-              {notifications.some((n) => !n.is_read) && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-sm text-orange-500 hover:text-orange-600"
-                >
-                  Mark all as read
-                </button>
-              )}
+              <div className="flex gap-6">
+                {notifications.some((n) => !n.is_read) && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-sm text-orange-500 hover:text-orange-600"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={deleteAllNotifications}
+                    className="text-sm text-white hover:text-red-600 p-2 px-3 rounded-lg bg-red-500"
+                  >
+                    Delete all
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -131,10 +183,24 @@ const NotificationsPage = () => {
                               minute: "2-digit",
                             })}
                           </p>
+                          {notif.message.includes("@") && (
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <Mail className="w-3 h-3" />
+                              <span>Email sent</span>
+                            </div>
+                          )}
                         </div>
-                        {!notif.is_read && (
-                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        )}
+                        <div className="flex items-center gap-5">
+                          <button
+                            onClick={() => deleteNotification(notif.id)}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                          {!notif.is_read && (
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

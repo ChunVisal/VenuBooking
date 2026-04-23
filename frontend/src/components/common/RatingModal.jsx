@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Star, X } from "lucide-react";
 import api from "../../api/axiosConfig";
 
@@ -6,27 +6,24 @@ const RatingModal = ({ eventId, eventTitle, onClose, onRated }) => {
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
 
   const handleSubmit = async () => {
     if (selectedRating === 0) return;
 
     setSubmitting(true);
     try {
-      const response = await api.post(`/events/${eventId}/rate`, {
+      await api.post(`/events/${eventId}/rate`, {
         rating: selectedRating,
       });
-      onRated(response.data.avg_rating, response.data.total_ratings);
-      setIsVisible(false);
-      setTimeout(onClose, 300);
+      // Refresh parent data
+      await onRated();
+      onClose();
     } catch (error) {
       console.error("Error:", error);
     } finally {
       setSubmitting(false);
     }
   };
-
-  if (!isVisible) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-10 duration-300">
@@ -39,11 +36,8 @@ const RatingModal = ({ eventId, eventTitle, onClose, onRated }) => {
             </p>
           </div>
           <button
-            onClick={() => {
-              setIsVisible(false);
-              setTimeout(onClose, 300);
-            }}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-full"
           >
             <X size={16} className="text-gray-400" />
           </button>
