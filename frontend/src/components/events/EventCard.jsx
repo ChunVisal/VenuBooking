@@ -105,7 +105,7 @@ const EventCard = ({ event }) => {
           <div className="absolute top-3 right-3 flex items-center space-x-2 ">
             <button
               onClick={handleToggleWishlist}
-              className={` p-2.5 rounded-full backdrop-blur-md transition-all ${
+              className={` p-2.5 rounded-full bg-gray-200 backdrop-blur-md transition-all ${
                 isWished
                   ? "bg-red-500 text-white scale-110 shadow-lg shadow-red-500/50"
                   : "bg-white/90 text-gray-700 hover:scale-110 hover:bg-white"
@@ -154,7 +154,7 @@ const EventCard = ({ event }) => {
                 <p className="text-gray-600 text-sm">{event.location}</p>
               )}
             </div>
-
+              
             {/* Date and Time */}
             <div className="flex items-center text-gray-700 mb-1">
               <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />

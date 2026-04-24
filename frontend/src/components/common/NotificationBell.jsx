@@ -115,7 +115,7 @@ const NotificationBell = () => {
               )}
             </div>
 
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-80 overflow-y-auto ">
               {notifications.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
                   <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -125,7 +125,7 @@ const NotificationBell = () => {
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className={`p-3 border-b border-gray-100 hover:bg-gray-50 transition ${
+                    className={`p-3 border-b bg-gray-200 border-gray-100 hover:bg-gray-50 transition ${
                       !notif.is_read ? "bg-orange-50" : ""
                     }`}
                     onClick={() => markAsRead(notif.id)}

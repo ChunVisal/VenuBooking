@@ -83,7 +83,7 @@ const CardMenu = ({ eventId, eventTitle, eventImage }) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="p-2.5 bg-white/90 backdrop-blur-md rounded-full hover:bg-white transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        className="p-2.5 bg-gray-200 backdrop-blur-md rounded-full hover:bg-white transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-500"
         aria-label="Event menu"
       >
         <MoreVertical className="h-4 w-4 text-gray-700" />

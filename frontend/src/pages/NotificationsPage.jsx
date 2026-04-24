@@ -13,7 +13,7 @@ const NotificationsPage = () => {
 
   useEffect(() => {
     if (currentUser) {
-      fetchNotifications();
+    fetchNotifications();
     }
   }, [currentUser]);
 
@@ -174,7 +174,7 @@ const NotificationsPage = () => {
               {notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-6 hover:bg-gray-50 transition ${
+                  className={`p-6 hover:bg-gray-50 bg-gray-200 transition ${
                     !notif.is_read ? "bg-orange-50" : ""
                   }`}
                 >

@@ -111,7 +111,7 @@ function PublicProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen text-slate-900 font-sans antialiased">
       {/* Background Image Section */}
       <div className="relative h-48 w-full overflow-hidden bg-orange-600 md:h-64">
         {user.background_image ? (

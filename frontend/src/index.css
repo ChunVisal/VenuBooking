@@ -30,6 +30,130 @@ h6 {
   font: bold;
 }
 
+/* background dark mode */
+/* Clean Dark Mode - Black/Dark Gray */
+.dark {
+  color-scheme: dark;
+}
+
+/* Main backgrounds */
+.dark body,
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-gray-200 {
+  background-color: #0a0a0a !important;
+}
+
+/* Cards and containers */
+.dark .bg-white {
+  background-color: #1a1a1a !important;
+}
+
+/* Text */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500 {
+  color: #e5e5e5 !important;
+}
+
+/* Borders */
+.dark .border-gray-200,
+.dark .border-gray-100,
+.dark .border-gray-300,
+.dark .border {
+  border-color: #333333 !important;
+}
+
+/* Inputs */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1a1a1a !important;
+  color: #e5e5e5 !important;
+  border-color: #2a2a2a !important;
+}
+
+/* Hover */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover 
+{
+  background-color: #2a2a2a !important;
+}
+
+/* Icons */
+.dark .text-gray-400 {
+  color: #666666 !important;
+}
+
+/* Fix Search Bar in Dark Mode */
+.dark .md\:bg-white,
+.dark .bg-white {
+  background-color: #1a1a1a !important;
+}
+
+.dark .border-gray-200 {
+  border-color: #2a2a2a !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #0a0a0a !important;
+}
+
+.dark input,
+.dark select {
+  background-color: transparent !important;
+  color: #e5e5e5 !important;
+}
+
+.dark .text-gray-600,
+.dark .text-gray-700,
+.dark .text-gray-800 {
+  color: #e5e5e5 !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #2a2a2a !important;
+}
+
+/* Modal background */
+.dark .fixed.bottom-0.left-0.right-0 {
+  background-color: #1a1a1a !important;
+}
+
+.dark .border-b.border-gray-200 {
+  border-color: #2a2a2a !important;
+}
+
+/* Fix dropdown backgrounds */
+.dark .bg-white {
+  background-color: #1a1a1a !important;
+}
+
+/* Fix absolute positioned elements (dropdowns) */
+.dark .absolute.bg-white,
+.dark .fixed.bg-white {
+  background-color: #1a1a1a !important;
+}
+
+/* Fix select dropdown */
+.dark select option {
+  background-color: #1a1a1a !important;
+  color: #e5e5e5 !important;
+}
+
+/* Fix mobile modal */
+.dark .rounded-t-2xl {
+  background-color: #1a1a1a !important;
+}
+
+/* Fix all text in dark mode */
+.dark * {
+  border-color: #333333 !important;
+}
+
 .scrollbar-custom::-webkit-scrollbar {
   height: 6px; /* horizontal scrollbar height */
 }

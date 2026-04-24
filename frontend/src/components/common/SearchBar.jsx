@@ -109,7 +109,7 @@ export default function SearchBar() {
               className="fixed inset-0 bg-black/50 z-40 animate-in fade-in duration-200"
               onClick={() => setIsMobileOpen(false)}
             />
-            <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 animate-in slide-in-from-bottom duration-300">
+            <div className="fixed bottom-0 left-0 right-0 rounded-t-2xl shadow-2xl z-50 animate-in slide-in-from-bottom duration-300">
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 className="font-semibold text-gray-800">Search Events</h3>
                 <button

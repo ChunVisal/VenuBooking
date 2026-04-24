@@ -6,6 +6,7 @@ import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { SearchProvider } from "./context/SearchContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")).render(
       <SearchProvider>
         <AuthProvider>
           <WishlistProvider>
-            <App />
+            <ThemeProvider>
+              <App />
+            </ThemeProvider>
           </WishlistProvider>
         </AuthProvider>
       </SearchProvider>

@@ -12,17 +12,21 @@ import {
   Home,
   User,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import AccountProfile from "../common/LogoProfile";
 import SearchBar from "../common/SearchBar";
 import NotificationBell from "../common/NotificationBell";
+import { useTheme } from "../../context/ThemeContext";
 
 const Navbar = () => {
   const { currentUser, loading, logout } = useContext(AuthContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { darkMode, toggleDarkMode } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -85,6 +89,12 @@ const Navbar = () => {
             <SearchBar />
             {/* Account Profile Component */}
             <NotificationBell />
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-lg hover:text-orange-600 transition-colors focus:ring-orange-500"
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
             <AccountProfile currentUser={currentUser} onLogout={handleLogout} />
 
             {/* Mobile Menu Toggle */}
