@@ -41,7 +41,7 @@ const CategoryFilter = ({ currentCategory = "All", onCategoryChange }) => {
   return (
     <section className="mx-auto max-w-7xl px-4 sm:px-7 mt-6">
       {/* Circular Buttons with Label Underneath */}
-      <div className="flex space-x-10 overflow-x-auto pb-4 scrollbar-custom">
+      <div className="flex space-x-10 overflow-x-auto pb-4  scrollbar-custom">
         {filterCategories.map((filter, index) => {
           const isActive = currentCategory === filter.value;
 
@@ -53,8 +53,8 @@ const CategoryFilter = ({ currentCategory = "All", onCategoryChange }) => {
               <button
                 onClick={() => handleCategoryClick(filter.value)}
                 className={`
-                  w-22 h-22 flex items-center justify-center 
-                  rounded-full transition-all duration-300
+                  w-21 h-21 m-1 flex items-center justify-center 
+                  rounded-full  transition-all duration-300
                   ${
                     isActive
                       ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg scale-105"
@@ -68,7 +68,7 @@ const CategoryFilter = ({ currentCategory = "All", onCategoryChange }) => {
                   className="h-10 w-10 scale-250 object-contain"
                 />
               </button>
-              <span
+              <span 
                 className={`
                 mt-2 text-center text-sm font-medium transition-colors duration-300
                 ${isActive ? "text-orange-600" : "text-gray-600"}

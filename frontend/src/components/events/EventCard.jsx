@@ -105,15 +105,15 @@ const EventCard = ({ event }) => {
           <div className="absolute top-3 right-3 flex items-center space-x-2 ">
             <button
               onClick={handleToggleWishlist}
-              className={` p-2.5 rounded-full bg-gray-200 backdrop-blur-md transition-all ${
+              className={` p-[8px] rounded-full bg-gray-200 backdrop-blur-md transition-all ${
                 isWished
-                  ? "bg-red-500 text-white scale-110 shadow-lg shadow-red-500/50"
-                  : "bg-white/90 text-gray-700 hover:scale-110 hover:bg-white"
+                  ? " scale-110"
+                  : "bg-white/90 hover:scale-110 hover:bg-white"
               }`}
             >
               <Heart
-                className={`h-3.5 w-3.5 transition-transform duration-300 ${
-                  isWished ? "fill-current scale-110" : ""
+                className={`h-5 w-5 transition-transform duration-300 ${
+                  isWished ? "fill-current text-red-600 scale-110" : ""
                 }`}
               />
             </button>
