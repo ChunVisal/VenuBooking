@@ -11,6 +11,8 @@ import tech from "../../assets/tech.jpg";
 import trending from "../../assets/trending.jpg";
 import sports from "../../assets/sports.jpg";
 
+import OptimizedImage from "./OptimizedImage";
+
 const filterCategories = [
   { name: "All", icon: allEvent, value: "All" },
   { name: "Trending", icon: trending, value: "trending" },
@@ -62,7 +64,7 @@ const CategoryFilter = ({ currentCategory = "All", onCategoryChange }) => {
                   }
                 `}
               >
-                <img
+                <OptimizedImage
                   src={filter.icon}
                   alt={filter.name}
                   className="h-10 w-10 scale-250 object-contain"

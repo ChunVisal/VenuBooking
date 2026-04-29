@@ -1,14 +1,17 @@
 // src/pages/Home/EventList.jsx
-import { useState, useEffect, useRef } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MapPin, Navigation, Loader2 } from "lucide-react";
 import api from "../../api/axiosConfig";
 import EventCard from "../../components/events/EventCard";
-import { useLocation } from "react-router-dom";
 
 export default function EventList() {
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState(null);
 
   // Filter states
@@ -16,51 +19,116 @@ export default function EventList() {
   const [selectedDateFilter, setSelectedDateFilter] = useState("All");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [availableLocations, setAvailableLocations] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
 
   const scrollRef = useRef(null);
-  const location = useLocation();
+  const observerRef = useRef(null);
+  const loadMoreRef = useRef(null);
 
-  // Save scroll position
-  useEffect(() => {
-    const savedScroll = sessionStorage.getItem("home-scroll");
-    if (savedScroll && scrollRef.current) {
-      scrollRef.current.scrollTo(0, parseInt(savedScroll));
-    }
-  }, []);
-
-  // Save on scroll
-  const handleScroll = () => {
-    if (scrollRef.current) {
-      sessionStorage.setItem("home-scroll", scrollRef.current.scrollTop);
-    }
-  };
-
-  useEffect(() => {
-    fetchAllEvents();
-  }, []);
-
-  useEffect(() => {
-    if (events.length > 0) {
-      const locations = [
-        ...new Set(events.map((event) => event.location).filter(Boolean)),
-      ];
-      setAvailableLocations(locations);
-      filterEvents();
-    }
-  }, [events, selectedLocation, selectedDateFilter]);
-
-  const fetchAllEvents = async () => {
+  // Fetch events with pagination
+  const fetchEvents = async (pageNum, isLoadMore = false) => {
     try {
-      setLoading(true);
-      const res = await api.get("/events");
-      setEvents(res.data);
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const res = await api.get(`/events?page=${pageNum}&limit=9`);
+      const newEvents = res.data.events;
+
+      if (pageNum === 1) {
+        setEvents(newEvents);
+        setAllEvents(newEvents);
+      } else {
+        setEvents((prev) => [...prev, ...newEvents]);
+        setAllEvents((prev) => [...prev, ...newEvents]);
+      }
+
+      setHasMore(pageNum < res.data.totalPages);
+      setTotal(res.data.totalEvents);
     } catch (err) {
-      console.error("Failed to fetch all events:", err);
+      console.error("Failed to fetch events:", err);
       setError("Could not load events.");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
+
+  // Initial load
+  useEffect(() => {
+    fetchEvents(1, false);
+  }, []);
+
+  // Infinite scroll using Intersection Observer
+  useEffect(() => {
+    if (loadingMore || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchEvents(nextPage, true);
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }, // Trigger 100px before bottom
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [loadMoreRef.current, hasMore, loadingMore, page]);
+
+  // Filter events
+  useEffect(() => {
+    if (allEvents.length > 0) {
+      const locations = [
+        ...new Set(allEvents.map((event) => event.location).filter(Boolean)),
+      ];
+      setAvailableLocations(locations);
+
+      let filtered = [...allEvents];
+
+      if (selectedLocation) {
+        filtered = filtered.filter((event) =>
+          event.location
+            ?.toLowerCase()
+            .includes(selectedLocation.toLowerCase()),
+        );
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const thisWeekStart = new Date(today);
+      thisWeekStart.setDate(today.getDate() - today.getDay());
+      const thisWeekEnd = new Date(thisWeekStart);
+      thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+
+      if (selectedDateFilter === "Today") {
+        filtered = filtered.filter((event) => {
+          const eventDate = new Date(event.date);
+          eventDate.setHours(0, 0, 0, 0);
+          return eventDate.getTime() === today.getTime();
+        });
+      } else if (selectedDateFilter === "ThisWeek") {
+        filtered = filtered.filter((event) => {
+          const eventDate = new Date(event.date);
+          return eventDate >= thisWeekStart && eventDate <= thisWeekEnd;
+        });
+      }
+
+      setFilteredEvents(filtered);
+    }
+  }, [selectedLocation, selectedDateFilter, allEvents]);
 
   const getUserCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -89,47 +157,6 @@ export default function EventList() {
     );
   };
 
-  const filterEvents = () => {
-    let filtered = [...events];
-
-    if (selectedLocation) {
-      filtered = filtered.filter((event) =>
-        event.location?.toLowerCase().includes(selectedLocation.toLowerCase()),
-      );
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const thisWeekStart = new Date(today);
-    thisWeekStart.setDate(today.getDate() - today.getDay());
-    const thisWeekEnd = new Date(thisWeekStart);
-    thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
-
-    if (selectedDateFilter === "Today") {
-      filtered = filtered.filter((event) => {
-        const eventDate = new Date(event.date);
-        eventDate.setHours(0, 0, 0, 0);
-        return eventDate.getTime() === today.getTime();
-      });
-    } else if (selectedDateFilter === "ThisWeek") {
-      filtered = filtered.filter((event) => {
-        const eventDate = new Date(event.date);
-        return eventDate >= thisWeekStart && eventDate <= thisWeekEnd;
-      });
-    }
-
-    setFilteredEvents(filtered);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-orange-500 border-r-transparent"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -138,15 +165,18 @@ export default function EventList() {
     );
   }
 
+  if (loading && page === 1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-    >
-      {/* Filters - Clean text only */}
-      <div className="flex items-center justify-between mb-6">
-        {/* Date Filters */}
+    <div className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Filters */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div className="flex gap-6">
           <button
             onClick={() => setSelectedDateFilter("All")}
@@ -180,7 +210,6 @@ export default function EventList() {
           </button>
         </div>
 
-        {/* Browse Location */}
         <div className="relative">
           <button
             onClick={() => setShowLocationDropdown(!showLocationDropdown)}
@@ -235,11 +264,25 @@ export default function EventList() {
 
       {/* Event Grid */}
       {filteredEvents.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {filteredEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+
+          {/* Sentinel element for infinite scroll */}
+          {hasMore && (
+            <div ref={loadMoreRef} className="py-8 flex justify-center">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading more events...</span>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-20">
           <p className="text-gray-500">No events found</p>

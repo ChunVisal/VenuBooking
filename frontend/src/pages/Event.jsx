@@ -1,5 +1,5 @@
 // src/pages/Event.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, Search as SearchIcon, X } from "lucide-react";
 import QuickFilter from "../components/common/CategoryFilter";
@@ -12,7 +12,12 @@ const Event = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [allEvents, setAllEvents] = useState([]);
 
   // Get search params from URL
   const currentCategory = searchParams.get("category") || "All";
@@ -21,94 +26,78 @@ const Event = () => {
   const dateFilter = searchParams.get("date") || "All";
 
   const scrollRef = useScrollRestoration("events-page");
+  const loadMoreRef = useRef(null);
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  useEffect(() => {
-    if (events.length > 0) {
-      filterEvents();
-    }
-  }, [currentCategory, searchQuery, searchLocation, dateFilter, events]);
-
-  const fetchEvents = async () => {
+  // Fetch events with pagination
+  const fetchEvents = async (pageNum, isLoadMore = false) => {
     try {
-      setLoading(true);
-      const response = await api.get("/events");
-      setEvents(response.data);
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await api.get(`/events?page=${pageNum}&limit=12`);
+      const newEvents = response.data.events;
+
+      if (pageNum === 1) {
+        setEvents(newEvents);
+        setAllEvents(newEvents);
+      } else {
+        setEvents((prev) => [...prev, ...newEvents]);
+        setAllEvents((prev) => [...prev, ...newEvents]);
+      }
+
+      setHasMore(pageNum < response.data.totalPages);
+      setTotal(response.data.totalEvents);
     } catch (error) {
       console.error("Error fetching events:", error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  // Helper function to check if location matches
-  const isLocationMatch = (eventLocation, searchLocationTerm) => {
-    if (!searchLocationTerm) return true;
-    if (!eventLocation) return false;
+  // Initial load
+  useEffect(() => {
+    fetchEvents(1, false);
+  }, []);
 
-    const eventLocLower = eventLocation.toLowerCase();
-    const searchLower = searchLocationTerm.toLowerCase();
+  // Infinite scroll using Intersection Observer
+  useEffect(() => {
+    if (loadingMore || !hasMore) return;
 
-    return (
-      eventLocLower.includes(searchLower) ||
-      searchLower.includes(eventLocLower) ||
-      eventLocLower
-        .split(/[, ]+/)
-        .some((part) => searchLower.includes(part) && part.length > 2)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchEvents(nextPage, true);
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" },
     );
-  };
 
-  // Helper function to check if query matches
-  const isQueryMatch = (event, searchQueryTerm) => {
-    if (!searchQueryTerm) return true;
-
-    const queryLower = searchQueryTerm.toLowerCase();
-
-    return (
-      (event.title && event.title.toLowerCase().includes(queryLower)) ||
-      (event.category && event.category.toLowerCase().includes(queryLower)) ||
-      (event.description &&
-        event.description.toLowerCase().includes(queryLower)) ||
-      (event.location && event.location.toLowerCase().includes(queryLower))
-    );
-  };
-
-  // Helper function to check date filter
-  const isDateMatch = (eventDate) => {
-    if (dateFilter === "All") return true;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const eventDateObj = new Date(eventDate);
-    eventDateObj.setHours(0, 0, 0, 0);
-
-    if (dateFilter === "Today") {
-      return eventDateObj.getTime() === today.getTime();
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
     }
 
-    if (dateFilter === "ThisWeek") {
-      // Get start of week (Sunday)
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [loadMoreRef.current, hasMore, loadingMore, loading, page]);
 
-      // Get end of week (Saturday)
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
-
-      return eventDateObj >= startOfWeek && eventDateObj <= endOfWeek;
+  // Apply filters when events or filters change
+  useEffect(() => {
+    if (allEvents.length > 0) {
+      filterEvents();
     }
-
-    return true;
-  };
+  }, [currentCategory, searchQuery, searchLocation, dateFilter, allEvents]);
 
   const filterEvents = () => {
-    let results = [...events];
+    let results = [...allEvents];
 
     // 1. Filter by category
     if (currentCategory !== "All") {
@@ -138,6 +127,64 @@ const Event = () => {
     setFilteredEvents(results);
   };
 
+  const isLocationMatch = (eventLocation, searchLocationTerm) => {
+    if (!searchLocationTerm) return true;
+    if (!eventLocation) return false;
+
+    const eventLocLower = eventLocation.toLowerCase();
+    const searchLower = searchLocationTerm.toLowerCase();
+
+    return (
+      eventLocLower.includes(searchLower) ||
+      searchLower.includes(eventLocLower) ||
+      eventLocLower
+        .split(/[, ]+/)
+        .some((part) => searchLower.includes(part) && part.length > 2)
+    );
+  };
+
+  const isQueryMatch = (event, searchQueryTerm) => {
+    if (!searchQueryTerm) return true;
+
+    const queryLower = searchQueryTerm.toLowerCase();
+
+    return (
+      (event.title && event.title.toLowerCase().includes(queryLower)) ||
+      (event.category && event.category.toLowerCase().includes(queryLower)) ||
+      (event.description &&
+        event.description.toLowerCase().includes(queryLower)) ||
+      (event.location && event.location.toLowerCase().includes(queryLower))
+    );
+  };
+
+  const isDateMatch = (eventDate) => {
+    if (dateFilter === "All") return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eventDateObj = new Date(eventDate);
+    eventDateObj.setHours(0, 0, 0, 0);
+
+    if (dateFilter === "Today") {
+      return eventDateObj.getTime() === today.getTime();
+    }
+
+    if (dateFilter === "ThisWeek") {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      return eventDateObj >= startOfWeek && eventDateObj <= endOfWeek;
+    }
+
+    return true;
+  };
+
   const handleCategoryChange = (category) => {
     const params = new URLSearchParams(searchParams);
     if (category === "All") {
@@ -146,6 +193,10 @@ const Event = () => {
       params.set("category", category);
     }
     navigate(`/events?${params.toString()}`);
+    // Reset pagination when filter changes
+    setPage(1);
+    setHasMore(true);
+    fetchEvents(1, false);
   };
 
   const handleDateFilterChange = (filter) => {
@@ -156,24 +207,28 @@ const Event = () => {
       params.set("date", filter);
     }
     navigate(`/events?${params.toString()}`);
+    setPage(1);
+    setHasMore(true);
+    fetchEvents(1, false);
   };
 
   const clearSearch = () => {
     navigate("/events");
+    setPage(1);
+    setHasMore(true);
+    fetchEvents(1, false);
   };
 
   const removeFilter = (filterType) => {
     const params = new URLSearchParams(searchParams);
-    if (filterType === "category") {
-      params.delete("category");
-    } else if (filterType === "location") {
-      params.delete("location");
-    } else if (filterType === "query") {
-      params.delete("q");
-    } else if (filterType === "date") {
-      params.delete("date");
-    }
+    if (filterType === "category") params.delete("category");
+    else if (filterType === "location") params.delete("location");
+    else if (filterType === "query") params.delete("q");
+    else if (filterType === "date") params.delete("date");
     navigate(`/events?${params.toString()}`);
+    setPage(1);
+    setHasMore(true);
+    fetchEvents(1, false);
   };
 
   const hasActiveFilters =
@@ -182,13 +237,16 @@ const Event = () => {
     currentCategory !== "All" ||
     dateFilter !== "All";
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
+
+  // Get displayed events (filtered from all loaded events)
+  const displayEvents = filteredEvents;
 
   return (
     <div ref={scrollRef} className="min-h-screen bg-gray-50 py-8">
@@ -201,15 +259,15 @@ const Event = () => {
                 Events
               </h1>
               <p className="text-gray-600 mt-1">
-                {filteredEvents.length}{" "}
-                {filteredEvents.length === 1 ? "event" : "events"} found
+                {displayEvents.length}{" "}
+                {displayEvents.length === 1 ? "event" : "events"} found
                 {hasActiveFilters && (
                   <span className="text-orange-600 ml-2">(filtered)</span>
                 )}
               </p>
             </div>
 
-            {/* Date Filters - Clean text with underline */}
+            {/* Date Filters */}
             <div className="flex gap-6">
               <button
                 onClick={() => handleDateFilterChange("All")}
@@ -308,7 +366,7 @@ const Event = () => {
         />
 
         {/* Events Grid */}
-        {filteredEvents.length === 0 ? (
+        {displayEvents.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-sm mt-8">
             <div className="max-w-md mx-auto">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -339,11 +397,25 @@ const Event = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
-            {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
+              {displayEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+
+            {/* Infinite scroll sentinel */}
+            {hasMore && (
+              <div ref={loadMoreRef} className="py-8 flex justify-center">
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Loading more events...</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

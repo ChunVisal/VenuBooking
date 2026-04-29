@@ -16,6 +16,7 @@ import {
 import api from "../api/axiosConfig";
 import { useState, useEffect } from "react";
 import ShareButton from "../components/common/ShareButton";
+import OptimizedImage from "../components/common/OptimizedImage";
 
 function Profile() {
   const { currentUser, loading, logout } = useContext(AuthContext);
@@ -77,7 +78,7 @@ function Profile() {
       {/* 1. Background Image Section */}
       <div className="relative h-48 w-full overflow-hidden bg-orange-600 md:h-64">
         {currentUser.background_image ? (
-          <img
+          <OptimizedImage
             src={currentUser.background_image}
             className="h-full w-full object-cover cursor-pointer"
             onClick={() => setSelectedImage(currentUser.background_image)}
@@ -197,8 +198,7 @@ function Profile() {
               </div>
               <div className="px-4">
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {currentUser.bio ||
-                    "Update your bio to showcase about you."}
+                  {currentUser.bio || "Update your bio to showcase about you."}
                 </p>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 pt-4 border-t border-gray-50">

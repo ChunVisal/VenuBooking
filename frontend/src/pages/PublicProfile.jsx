@@ -16,6 +16,7 @@ import {
 import api from "../api/axiosConfig";
 import toast from "react-hot-toast";
 import ShareButton from "../components/common/ShareButton";
+import OptimizedImage from "../components/common/OptimizedImage";
 
 function PublicProfile() {
   const { username } = useParams();
@@ -115,7 +116,7 @@ function PublicProfile() {
       {/* Background Image Section */}
       <div className="relative h-48 w-full overflow-hidden bg-orange-600 md:h-64">
         {user.background_image ? (
-          <img
+          <OptimizedImage
             src={user.background_image}
             className="h-full w-full object-cover cursor-pointer"
             onClick={() => setSelectedImage(user.background_image)}

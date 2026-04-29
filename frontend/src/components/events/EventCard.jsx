@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import CardMenu from "../common/CardMenu";
+import OptimizedImage from "../common/OptimizedImage";
 import toast from "react-hot-toast";
 import {
   Calendar,
@@ -83,7 +84,7 @@ const EventCard = ({ event }) => {
         {/* Image Section */}
         <div className="relative h-56 overflow-hidden">
           <Link to={`/event/${event.id}`}>
-            <img
+            <OptimizedImage
               src={
                 event.image?.startsWith("[")
                   ? JSON.parse(event.image)[0]

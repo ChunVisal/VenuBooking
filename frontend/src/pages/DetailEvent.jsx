@@ -18,6 +18,7 @@ import ShareButton from "../components/common/ShareButton";
 import { AuthContext } from "../context/AuthContext";
 import { WishlistContext } from "../context/WishlistContext";
 import { useContext } from "react";
+import OptimizedImage from "../components/common/OptimizedImage";
 import toast from "react-hot-toast";
 
 // Import Leaflet
@@ -212,14 +213,6 @@ export default function EventDetails() {
     toast.success("Link copied!");
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto p-4 flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-      </div>
-    );
-  }
-
   if (!event) return null;
 
   // Parse data
@@ -293,7 +286,7 @@ export default function EventDetails() {
       <div className="md:hidden flex flex-col gap-4">
         {/* Event Main Image */}
         <div className="w-full h-60">
-          <img
+          <OptimizedImage
             src={activeImage}
             alt={event.title}
             className="w-full h-full rounded-sm object-cover"
@@ -303,7 +296,7 @@ export default function EventDetails() {
         {images.length > 1 && (
           <div className="flex gap-2 overflow-x-auto">
             {images.map((img, i) => (
-              <img
+              <OptimizedImage
                 key={i}
                 src={img}
                 alt={`Thumb ${i}`}
@@ -477,7 +470,7 @@ export default function EventDetails() {
         {/* Left Column */}
         <div className="md:w-2/3 space-y-4">
           <div className="w-full h-96">
-            <img
+            <OptimizedImage
               src={activeImage}
               alt={event.title}
               className="w-full h-full rounded-sm object-cover"
@@ -486,7 +479,7 @@ export default function EventDetails() {
           {images.length > 1 && (
             <div className="grid grid-cols-4 gap-2">
               {images.map((img, i) => (
-                <img
+                <OptimizedImage
                   key={i}
                   src={img}
                   className={`w-full h-20 object-cover rounded-sm cursor-pointer ${

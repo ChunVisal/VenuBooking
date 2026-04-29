@@ -1,30 +1,40 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
+// Static components (always load)
 import Navbar from "./components/layout/Navbar";
-import Home from "./pages/Home/Home";
 import Footer from "./components/layout/Footer";
-import DetailEvent from "./pages/DetailEvent";
-import Signup from "./pages/Signup";
-import Login from "./pages/Login";
-import CreateEvent from "./pages/CreateEvent";
-import MyBookings from "./pages/MyBookings";
-import BookingPage from "./pages/Bookings";
-import PaymentPage from "./pages/PaymentPage";
-import Event from "./pages/Event";
-import Profile from "./pages/Profile";
-import Wishlist from "./pages/Wishlist";
-import EditProfile from "./pages/EditProfile";
-import PublicProfile from "./pages/PublicProfile";
-import ProtectedRoute from "./pages/ProtectedRoute";
-import MyEvents from "./pages/MyEvents";
-import EditEvent from "./pages/EditEvent";
 import Breadcrumb from "./components/common/Breadcrumb";
 import ScrollToTop from "./components/common/ScrollToTop";
-import NotificationsPage from "./pages/NotificationsPage";
+
+// Lazy load page components
+const Home = lazy(() => import("./pages/Home/Home"));
+const DetailEvent = lazy(() => import("./pages/DetailEvent"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Login = lazy(() => import("./pages/Login"));
+const CreateEvent = lazy(() => import("./pages/CreateEvent"));
+const MyBookings = lazy(() => import("./pages/MyBookings"));
+const BookingPage = lazy(() => import("./pages/Bookings"));
+const PaymentPage = lazy(() => import("./pages/PaymentPage"));
+const Event = lazy(() => import("./pages/Event"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Wishlist = lazy(() => import("./pages/Wishlist"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const ProtectedRoute = lazy(() => import("./pages/ProtectedRoute"));
+const MyEvents = lazy(() => import("./pages/MyEvents"));
+const EditEvent = lazy(() => import("./pages/EditEvent"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+
+// Loading component
+const PageLoader = () => (  
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+  </div>
+);
 
 function App() {
   return (
@@ -33,38 +43,42 @@ function App() {
       <Navbar />
       <Breadcrumb />
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/event/:id" element={<DetailEvent />} />
-        <Route path="/wishlist" element={<Wishlist />}></Route>
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/my-bookings" element={<MyBookings />} />
-        <Route path="/create-event" element={<CreateEvent />} />
-        <Route path="/book/:eventId" element={<BookingPage />} />
-        <Route path="/payment/:eventId" element={<PaymentPage />} />
-        <Route path="/my-events" element={<MyEvents />} />
-        <Route path="/events" element={<Event />} />
-        <Route path="/edit-profile" element={<EditProfile />} />
-        <Route path="/profile/:username" element={<PublicProfile />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/edit-event/:id"
-          element={
-            <ProtectedRoute>
-              <EditEvent />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/event/:id" element={<DetailEvent />} />
+          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
+          <Route path="/create-event" element={<CreateEvent />} />
+          <Route path="/book/:eventId" element={<BookingPage />} />
+          <Route path="/payment/:eventId" element={<PaymentPage />} />
+          <Route path="/my-events" element={<MyEvents />} />
+          <Route path="/events" element={<Event />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/profile/:username" element={<PublicProfile />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-event/:id"
+            element={
+              <ProtectedRoute>
+                <EditEvent />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
+
       <Footer />
     </>
   );

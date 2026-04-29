@@ -1,7 +1,16 @@
 // src/pages/Signup.jsx (STRICTLY REVISED)
 import { useState, useEffect, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { User, Mail, Lock, UserPlus, Loader2, Calendar } from "lucide-react";
+import {
+  User,
+  Mail,
+  Lock,
+  UserPlus,
+  Loader2,
+  Calendar,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import api from "../api/axiosConfig";
 import useGoogleSignIn from "../api/googleAuth";
 import { AuthContext } from "../context/AuthContext";
@@ -15,6 +24,7 @@ export default function Signup() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,7 +58,6 @@ export default function Signup() {
       setLoading(false);
     }
   };
-
   // --- Start: Layout (Orange/Black Theme) ---
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -98,13 +107,21 @@ export default function Signup() {
           <div className="relative">
             <Lock className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
             <input
-              type="password"
+              id="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               required
-              className="w-full pl-10 pr-4 py-3 bg-gray-200 text-gray-800 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 border border-gray-700 outline-none transition-all"
+              className="w-full pl-10 pr-10 py-3 bg-gray-200 text-gray-800 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 border border-gray-700 outline-none transition-all"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           {message && (
