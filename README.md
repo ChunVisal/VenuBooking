@@ -1,91 +1,101 @@
-# VenuBooking
+# VeuBooking
 
-Event management and ticket booking system — designed for collaborative development.
+A full-stack event project platform where users can discover, book, and manage event tickets.
 
----
-
-## 🚀 Setup
-
-Prerequisites:
-
-- Node.js (>= 14)
-- Git
-
-Get the code and run locally:
-
-```bash
-git clone https://github.com/JoeNarthan/VenuBooking.git
-cd VenuBooking
-npm install
-npm start
-```
-
-Optional: add any required environment variables to a `.env` file (follow project-specific README or .env.example).
+**Live Demo:** [https://venubooking.netlify.app](https://venubooking.netlify.app)
 
 ---
 
-## 🧑‍🤝‍🧑 Git Collaboration (recommended workflow)
+## ✨ Features
 
-Always work on a feature branch. Never push directly to `main`.
+### For Users
+- 🔐 Login/Signup with email or Google
+- 🎟️ Browse events with infinite scroll
+- 📍 Search by location, category, or date
+- 💳 Book tickets (Free + Stripe payment)
+- 🎫 Receive unique ticket codes
+- ❤️ Save events to wishlist
+- 🔔 Real-time notifications
+- ⭐ Rate events (one rating per user)
+- 🌙 Dark mode
+- 📱 Fully responsive
 
-1. Create a feature branch
-
-```bash
-git checkout -b feature/your-task
-```
-
-2. Keep your branch up to date with `main`
-
-```bash
-git checkout main
-git pull origin main
-git checkout feature/your-task
-git merge main
-```
-
-or use rebase if your team prefers:
-
-```bash
-git checkout feature/your-task
-git fetch origin
-git rebase origin/main
-```
-
-3. Stage, commit and push changes
-
-```bash
-git add .
-git commit -m "feat: short description of change"
-git push origin feature/your-task
-```
-
-4. Open a Pull Request (PR) from `feature/your-task` → `main` on GitHub. Request reviews and address feedback.
-
-5. After merge: update local `main` and remove the feature branch
-
-```bash
-git checkout main
-git pull origin main
-git branch -d feature/your-task
-```
+### For Event Organizers
+- ➕ Create/Display/Edit/Delete events
+- 📊 View event analytics (view count)
+- 📋 See who booked your events
+- 📧 Get notified on new bookings
 
 ---
 
-## 📌 Useful Git Commands
+## 🛠️ Tech Stack
 
-| Action | Command |
-|---|---|
-| Clone repo | `git clone <url>` |
-| Create branch | `git checkout -b <branch>` |
-| Switch branch | `git checkout <branch>` |
-| Stage changes | `git add .` |
-| Commit | `git commit -m "message"` |
-| Push | `git push origin <branch>` |
-| Pull | `git pull origin main` |
-| Merge | `git merge main` |
-| Status | `git status` |
-| Log | `git log --oneline --graph --all` |
+**Frontend:**
+- React 18
+- Tailwind CSS
+- React Router
+- Axios
+- Lucide Icons
+- Leaflet Maps
+- Stripe Elements
+
+**Backend:**
+- Node.js
+- Express
+- PostgreSQL
+- JWT Authentication
+- Stripe API
+- Cloudinary (image upload)
+
+**Deployment:**
+- Frontend: Netlify
+- Backend: Render
+- Database: Neon Tech
 
 ---
 
-Follow your team's PR template and commit message conventions for consistency.
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL
+- Stripe account (for payments)
+
+### 📁 Project Structure
+venubooking/
+├── backend/
+│   ├── config/        # DB, Cloudinary config
+│   ├── middleware/    # Auth middleware
+│   ├── routes/        # API routes
+│   └── server.js      # Entry point
+├── frontend/
+│   ├── src/
+│   │   ├── components/ # Reusable UI
+│   │   ├── context/    # Auth, Wishlist context
+│   │   ├── pages/      # All pages
+│   │   └── App.jsx
+└── README.md
+
+📸 Screenshots
+Home	Event Details
+https://screenshots/home.png	https://screenshots/event.png
+Booking	My Bookings
+https://screenshots/booking.png	https://screenshots/tickets.png
+🎯 Future Improvements
+Email notifications (Nodemailer)
+
+QR code tickets
+
+Admin dashboard
+
+Bakong payment (Cambodia)
+
+Mobile app (React Native)
+
+👨‍💻 Author
+Chun Visal
+
+GitHub: @chunvisal
+
+
+

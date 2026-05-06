@@ -194,7 +194,7 @@ const CreateEventPage = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-10 text-center">
@@ -203,7 +203,7 @@ const CreateEventPage = () => {
               <Sparkles className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-clip-text">
             Create Your Event
           </h1>
           <p className="text-gray-500 mt-2">

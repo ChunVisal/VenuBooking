@@ -25,10 +25,9 @@ h1, h2, h3, h4{
 
 h6 {
   font-family: 'Roboto', sans-serif;
-  font-weight: 400;
-  font-size: 13px;
-  font: bold;
+  font-weight:  600;
 }
+
 
 /* background dark mode */
 /* Clean Dark Mode - Black/Dark Gray */

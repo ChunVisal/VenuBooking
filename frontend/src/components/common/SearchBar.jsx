@@ -235,14 +235,14 @@ export default function SearchBar() {
       {/* Desktop: Full Search Bar */}
       <div className="hidden md:flex md:items-center md:gap-1 md:bg-white md:border md:border-gray-200 md:rounded-md md:shadow-sm md:p-1">
         {/* Search Input with X */}
-        <div className="relative flex items-center gap-1.5 px-2 py-1 group">
+        <div className="relative flex items-center gap-1.5 px-1 py-1 group">
           <Search size={14} className="text-blue-600" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="w-28 outline-none bg-transparent text-gray-700 text-xs"
+            className="w-25 outline-none bg-transparent text-gray-700 text-xs"
           />
           {searchQuery && (
             <button
@@ -265,7 +265,7 @@ export default function SearchBar() {
             onFocus={() => setShowLocationDropdown(true)}
             onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
             placeholder="Location"
-            className="w-28 outline-none bg-transparent text-gray-700 text-xs"
+            className="w-25 outline-none bg-transparent text-gray-700 text-xs"
           />
           {searchLocation && (
             <button
@@ -296,12 +296,12 @@ export default function SearchBar() {
         </div>
 
         {/* Category Selector - Full list with better width */}
-        <div className="relative flex items-center gap-1.5 px-2 py-1 border-l border-gray-200">
+        <div className="relative flex items-center gap-1.5 px-1 py-1 border-l border-gray-200">
           <LayoutGrid size={14} className="text-gray-400" />
           <select
             value={searchCategory}
             onChange={(e) => setSearchCategory(e.target.value)}
-            className="bg-transparent outline-none text-gray-600 cursor-pointer text-xs pr-6 min-w-[100px]"
+            className="bg-transparent outline-none text-gray-600 cursor-pointer text-xs pr-3 min-w-[80px]"
           >
             {categories.map((cat) => (
               <option key={cat} value={cat}>

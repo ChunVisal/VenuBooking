@@ -8,23 +8,26 @@ const RatingStars = ({ eventId, eventTitle }) => {
   const [totalRatings, setTotalRatings] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [hasRated, setHasRated] = useState(false);
+  const [neverShowAgain, setNeverShowAgain] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [modalShown, setModalShown] = useState(false);
 
-  // Fetch REAL data from database
   const fetchRatingData = async () => {
     try {
       const response = await api.get(`/events/${eventId}`);
       setAvgRating(response.data.avg_rating || 0);
       setTotalRatings(response.data.total_ratings || 0);
 
-      // Check if user already rated
       const token = localStorage.getItem("token");
       if (token) {
         const ratedRes = await api.get(`/events/${eventId}/has-rated`);
         setHasRated(ratedRes.data.hasRated);
       }
+
+      const neverShow = localStorage.getItem(`never_rate_${eventId}`);
+      setNeverShowAgain(neverShow === "true");
     } catch (err) {
-      console.error("Error fetching rating:", err);
+      console.error("Error:", err);
     } finally {
       setLoading(false);
     }
@@ -34,20 +37,28 @@ const RatingStars = ({ eventId, eventTitle }) => {
     fetchRatingData();
   }, [eventId]);
 
-  // Auto popup modal (only if not rated)
+  // Show modal after 3 seconds if NOT rated and NOT "never show again"
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && !hasRated && !loading) {
+    if (token && !hasRated && !neverShowAgain && !modalShown && !loading) {
       const timer = setTimeout(() => {
         setShowModal(true);
-      }, 2000);
+        setModalShown(true);
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [hasRated, loading]);
+  }, [hasRated, neverShowAgain, loading, modalShown]);
 
-  const handleRated = async () => {
-    // Refresh data from database after rating
-    await fetchRatingData();
+  const handleRated = (newAvg, newTotal) => {
+    setAvgRating(newAvg);
+    setTotalRatings(newTotal);
+    setHasRated(true);
+    setShowModal(false);
+  };
+
+  const handleNeverShowAgain = () => {
+    localStorage.setItem(`never_rate_${eventId}`, "true");
+    setNeverShowAgain(true);
     setShowModal(false);
   };
 
@@ -69,7 +80,9 @@ const RatingStars = ({ eventId, eventTitle }) => {
             />
           ))}
         </div>
-        <span className="text-xs text-gray-500">({totalRatings} Users)</span>
+        <span className="text-xs text-gray-500">
+          ({totalRatings} {totalRatings === 1 ? "rating" : "ratings"})
+        </span>
       </div>
 
       {showModal && (
@@ -78,6 +91,7 @@ const RatingStars = ({ eventId, eventTitle }) => {
           eventTitle={eventTitle}
           onClose={() => setShowModal(false)}
           onRated={handleRated}
+          onNeverShowAgain={handleNeverShowAgain}
         />
       )}
     </>

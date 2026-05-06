@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, Search as SearchIcon, X } from "lucide-react";
-import QuickFilter from "../components/common/CategoryFilter";
+import QuickFilter from "./Home/QuickFilter";
 import EventCard from "../components/events/EventCard";
 import api from "../api/axiosConfig";
 import { useScrollRestoration } from "../components/common/ScrollRestoration";
