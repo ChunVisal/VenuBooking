@@ -18,12 +18,14 @@ const Event = () => {
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [allEvents, setAllEvents] = useState([]);
+  const [displayEvents, setDisplayEvents] = useState([]);
 
   // Get search params from URL
   const currentCategory = searchParams.get("category") || "All";
   const searchQuery = searchParams.get("q") || "";
   const searchLocation = searchParams.get("location") || "";
   const dateFilter = searchParams.get("date") || "All";
+  const scrollContainerRef = useRef(null);
 
   const scrollRef = useScrollRestoration("events-page");
   const loadMoreRef = useRef(null);
@@ -58,6 +60,32 @@ const Event = () => {
     }
   };
 
+  useEffect(() => {
+    if (events.length > 0) {
+      const savedOrder = localStorage.getItem("event_order");
+
+      if (savedOrder) {
+        // Use saved order from ANY previous visit
+        const orderIds = JSON.parse(savedOrder);
+        const ordered = orderIds
+          .map((id) => events.find((e) => e.id === id))
+          .filter(Boolean);
+        setDisplayEvents(ordered);
+      } else {
+        // First time - randomize and save
+        const shuffled = [...events];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        setDisplayEvents(shuffled);
+        localStorage.setItem(
+          "event_order",
+          JSON.stringify(shuffled.map((e) => e.id)),
+        );
+      }
+    }
+  }, [events]);
   // Initial load
   useEffect(() => {
     fetchEvents(1, false);
@@ -244,10 +272,6 @@ const Event = () => {
       </div>
     );
   }
-
-  // Get displayed events (filtered from all loaded events)
-  const displayEvents = filteredEvents;
-
   return (
     <div ref={scrollRef} className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -366,7 +390,7 @@ const Event = () => {
         />
 
         {/* Events Grid */}
-        {displayEvents.length === 0 ? (
+        {filteredEvents.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-sm mt-8">
             <div className="max-w-md mx-auto">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -399,7 +423,7 @@ const Event = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
-              {displayEvents.map((event) => (
+              {filteredEvents.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>

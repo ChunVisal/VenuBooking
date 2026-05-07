@@ -30,7 +30,7 @@ const EditEvent = lazy(() => import("./pages/EditEvent"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 // Loading component
-const PageLoader = () => (  
+const PageLoader = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
   </div>

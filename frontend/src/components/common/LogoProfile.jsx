@@ -34,7 +34,7 @@ const AccountProfile = ({ currentUser, onLogout }) => {
     { name: "My Events", icon: Calendar, to: "/my-events" },
     { name: "My Bookings", icon: BookOpen, to: "/my-bookings" },
     { name: "Wishlist", icon: Heart, to: "/wishlist" },
-    { name: "Settings", icon: Settings, to: "/settings" },
+    { name: "Settings", icon: Settings, to: "/edit-profile" },
   ];
 
   if (!currentUser) {
@@ -109,7 +109,7 @@ const AccountProfile = ({ currentUser, onLogout }) => {
                 key={item.name}
                 to={item.to}
                 onClick={() => setIsOpen(false)}
-                className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50/20 hover:text-orange-600 transition-colors"
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.name}</span>
