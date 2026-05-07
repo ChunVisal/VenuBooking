@@ -45,8 +45,6 @@ const PaymentForm = ({
           ticket_count: ticketCount,
           ticket_type: "regular",
         });
-
-        console.log("Payment intent response:", response.data);
         setClientSecret(response.data.clientSecret);
       } catch (err) {
         console.error("Payment intent error:", err);

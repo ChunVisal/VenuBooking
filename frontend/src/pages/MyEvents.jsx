@@ -22,7 +22,6 @@ const MyEvents = () => {
       try {
         const res = await api.get("/events/user/events");
         setEvents(res.data);
-        console.log("events: ", res.data);
         setLoading(false);
       } catch (err) {
         setError("Failed to load your events. Please try again.");

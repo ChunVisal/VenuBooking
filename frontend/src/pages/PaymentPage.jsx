@@ -22,12 +22,10 @@ const PaymentForm = ({ bookingId, amount, onSuccess }) => {
   useEffect(() => {
     const createPaymentIntent = async () => {
       try {
-        console.log("Creating payment intent for:", { bookingId, amount });
         const response = await api.post("/bookings/create-payment-intent", {
           booking_id: bookingId,
           amount: amount,
         });
-        console.log("Payment intent response:", response.data);
         setClientSecret(response.data.clientSecret);
       } catch (err) {
         console.error("Payment intent error:", err);
