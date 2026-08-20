@@ -76,25 +76,15 @@ venubooking/
 │   │   └── App.jsx
 └── README.md
 
-📸 Screenshots
-Home	Event Details
-https://screenshots/home.png	https://screenshots/event.png
-Booking	My Bookings
-https://screenshots/booking.png	https://screenshots/tickets.png
 🎯 Future Improvements
 Email notifications (Nodemailer)
-
 QR code tickets
-
 Admin dashboard
-
 Bakong payment (Cambodia)
-
 Mobile app (React Native)
 
 👨‍💻 Author
 Chun Visal
-
 GitHub: @chunvisal
 
 
