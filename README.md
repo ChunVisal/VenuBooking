@@ -62,6 +62,8 @@ A full-stack event project platform where users can discover, book, and manage e
 - Stripe account (for payments)
 
 ### 📁 Project Structure
+
+```text
 venubooking/
 ├── backend/
 │   ├── config/        # DB, Cloudinary config
@@ -75,6 +77,7 @@ venubooking/
 │   │   ├── pages/      # All pages
 │   │   └── App.jsx
 └── README.md
+```
 
 🎯 Future Improvements
 Email notifications (Nodemailer)
