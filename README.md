@@ -15,7 +15,6 @@ A full-stack event project platform where users can discover, book, and manage e
 ![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=reactrouter&logoColor=white)
 ![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)
 ![Lucide Icons](https://img.shields.io/badge/Lucide_Icons-F56565?style=for-the-badge&logo=lucide&logoColor=white)
-![Leaflet](https://img.shields.io/badge/Leaflet_Maps-199900?style=for-the-badge&logo=leaflet&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe_Elements-008CDD?style=for-the-badge&logo=stripe&logoColor=white)
 
 **Backend:**
